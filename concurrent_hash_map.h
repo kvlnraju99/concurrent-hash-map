@@ -2,6 +2,7 @@
 #define CONCURRENT_HASH_MAP_H
 
 #include <vector>
+#include <mutex>
 #include <shared_mutex>
 #include <functional>
 #include <optional>

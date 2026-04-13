@@ -5,14 +5,12 @@
 #include <cstdlib>
 #include "concurrent_hash_map.h"
 
-// ─── Benchmark: same total work, split across N threads ─────────────
-
-// Total operations to perform (constant regardless of thread count).
+// Total operations (constant regardless of thread count).
 const int TOTAL_OPS = 800000;
 
-// Run put operations split across N threads, return time in ms.
-double benchmark_puts(int num_threads) {
-    ConcurrentHashMap<int, int> map(64);
+// ─── Benchmark function: insert TOTAL_OPS keys into a map ───────────
+
+double run_put_benchmark(ConcurrentHashMap<int, int>& map, int num_threads) {
     int ops_per_thread = TOTAL_OPS / num_threads;
 
     std::vector<std::thread> threads;
@@ -34,15 +32,10 @@ double benchmark_puts(int num_threads) {
     return std::chrono::duration<double, std::milli>(end - start).count();
 }
 
-// Run get operations split across N threads, return time in ms.
-double benchmark_gets(int num_threads) {
-    ConcurrentHashMap<int, int> map(64);
-    int ops_per_thread = TOTAL_OPS / num_threads;
+// ─── Benchmark function: get from a pre-filled map ──────────────────
 
-    // Pre-fill the map.
-    for (int i = 0; i < TOTAL_OPS; i++) {
-        map.put(i, i);
-    }
+double run_get_benchmark(ConcurrentHashMap<int, int>& map, int num_threads) {
+    int ops_per_thread = TOTAL_OPS / num_threads;
 
     std::vector<std::thread> threads;
 
@@ -63,15 +56,10 @@ double benchmark_gets(int num_threads) {
     return std::chrono::duration<double, std::milli>(end - start).count();
 }
 
-// Run mixed operations split across N threads, return time in ms.
-double benchmark_mixed(int num_threads) {
-    ConcurrentHashMap<int, int> map(64);
-    int ops_per_thread = TOTAL_OPS / num_threads;
+// ─── Benchmark function: mixed ops on a map ─────────────────────────
 
-    // Pre-fill some data.
-    for (int i = 0; i < 50000; i++) {
-        map.put(i, i);
-    }
+double run_mixed_benchmark(ConcurrentHashMap<int, int>& map, int num_threads) {
+    int ops_per_thread = TOTAL_OPS / num_threads;
 
     std::vector<std::thread> threads;
 
@@ -96,32 +84,70 @@ double benchmark_mixed(int num_threads) {
     return std::chrono::duration<double, std::milli>(end - start).count();
 }
 
-// ─── Print a table for a given benchmark ────────────────────────────
+// ─── Print a scaling table ──────────────────────────────────────────
 
-void run_benchmark(const std::string& name,
-                   double (*bench_fn)(int),
-                   int max_threads) {
-    std::cout << "\n--- " << name << " (" << TOTAL_OPS << " total ops) ---\n";
+void print_scaling_table(const std::string& label,
+                         double (*bench_fn)(ConcurrentHashMap<int, int>&, int),
+                         size_t initial_buckets, double load_factor,
+                         int max_threads) {
+    std::cout << "\n" << label << "\n";
     std::cout << "Threads | Time (ms) | Speedup\n";
     std::cout << "--------|-----------|--------\n";
 
-    // Baseline: 1 thread.
-    double time_1 = bench_fn(1);
-
+    double time_1 = 0;
     for (int t = 1; t <= max_threads; t *= 2) {
-        double time_t = (t == 1) ? time_1 : bench_fn(t);
+        ConcurrentHashMap<int, int> map(initial_buckets, load_factor);
+
+        // Pre-fill for get benchmark.
+        if (bench_fn == run_get_benchmark || bench_fn == run_mixed_benchmark) {
+            for (int i = 0; i < TOTAL_OPS; i++) {
+                map.put(i, i);
+            }
+        }
+
+        double time_t = bench_fn(map, t);
+        if (t == 1) time_1 = time_t;
         double speedup = time_1 / time_t;
         printf("   %2d   | %9.1f | %5.2fx\n", t, time_t, speedup);
+    }
+}
+
+// ─── Compare fixed vs dynamic sizing ────────────────────────────────
+
+void compare_fixed_vs_dynamic(int max_threads) {
+    std::cout << "\n============================================\n";
+    std::cout << " Comparison: Fixed (4 buckets) vs Dynamic\n";
+    std::cout << "============================================\n";
+
+    std::cout << "\n--- PUT: Fixed 4 buckets (no resize) ---\n";
+    std::cout << "Threads | Time (ms)\n";
+    std::cout << "--------|---------\n";
+
+    for (int t = 1; t <= max_threads; t *= 2) {
+        // Fixed: 4 buckets, huge load factor = no resize.
+        ConcurrentHashMap<int, int> map(4, 999999.0);
+        double time_fixed = run_put_benchmark(map, t);
+        printf("   %2d   | %9.1f\n", t, time_fixed);
+    }
+
+    std::cout << "\n--- PUT: Dynamic (starts at 4, resizes) ---\n";
+    std::cout << "Threads | Time (ms) | Final buckets\n";
+    std::cout << "--------|-----------|---------------\n";
+
+    for (int t = 1; t <= max_threads; t *= 2) {
+        // Dynamic: 4 buckets, load factor 0.75 = auto resize.
+        ConcurrentHashMap<int, int> map(4, 0.75);
+        double time_dynamic = run_put_benchmark(map, t);
+        size_t final_buckets = map.get_bucket_count();
+        printf("   %2d   | %9.1f | %zu\n", t, time_dynamic, final_buckets);
     }
 }
 
 // ─── Main ───────────────────────────────────────────────────────────
 
 int main(int argc, char* argv[]) {
-    // Default: use all available cores.
     int max_threads = std::thread::hardware_concurrency();
 
-    // User can override from command line: ./benchmark 4
     if (argc >= 2) {
         max_threads = std::atoi(argv[1]);
         if (max_threads < 1) max_threads = 1;
@@ -133,9 +159,18 @@ int main(int argc, char* argv[]) {
     std::cout << " Total ops:   " << TOTAL_OPS << "\n";
     std::cout << "========================================\n";
 
-    run_benchmark("PUT Benchmark",   benchmark_puts,  max_threads);
-    run_benchmark("GET Benchmark",   benchmark_gets,  max_threads);
-    run_benchmark("MIXED Benchmark", benchmark_mixed, max_threads);
+    // Standard benchmarks with 64 buckets.
+    print_scaling_table("--- PUT Benchmark (64 buckets, dynamic) ---",
+                        run_put_benchmark, 64, 0.75, max_threads);
+
+    print_scaling_table("--- GET Benchmark (64 buckets, dynamic) ---",
+                        run_get_benchmark, 64, 0.75, max_threads);
+
+    print_scaling_table("--- MIXED Benchmark (64 buckets, dynamic) ---",
+                        run_mixed_benchmark, 64, 0.75, max_threads);
+
+    // Fixed vs Dynamic comparison.
+    compare_fixed_vs_dynamic(max_threads);
 
     std::cout << "\n========================================\n";
     std::cout << " Done.\n";

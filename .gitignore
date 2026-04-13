@@ -1,0 +1,6 @@
+# Compiled binaries
+hash_map_test
+benchmark
+
+# OS files
+.DS_Store

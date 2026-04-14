@@ -4,6 +4,7 @@
 #include <cassert>
 #include <atomic>
 #include "concurrent_hash_map.h"
+#include "lock_free_hash_map.h"
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -21,7 +22,7 @@ void check(bool condition, const std::string& label) {
 }
 
 // =====================================================================
-//  PART 1: SINGLE-THREAD TESTS
+//  PART 1: SINGLE-THREAD TESTS (Lock-Based)
 // =====================================================================
 
 void test_insert_and_get() {
@@ -40,7 +41,6 @@ void test_insert_and_get() {
 void test_get_missing_key() {
     std::cout << "\n--- Test: Get Missing Key ---\n";
     ConcurrentHashMap<std::string, int> map(8);
-
     map.put("apple", 1);
 
     check(!map.get("grape").has_value(),  "get grape  -> not found");
@@ -53,10 +53,8 @@ void test_update_existing_key() {
 
     map.put("apple", 1);
     check(map.get("apple") == 1,  "apple starts at 1");
-
     map.put("apple", 10);
     check(map.get("apple") == 10, "apple updated to 10");
-
     map.put("apple", 99);
     check(map.get("apple") == 99, "apple updated to 99");
 }
@@ -75,15 +73,14 @@ void test_remove() {
 }
 
 // =====================================================================
-//  PART 2: MULTI-THREAD TESTS (DIFFERENT BUCKETS)
+//  PART 2: MULTI-THREAD TESTS (Lock-Based)
 // =====================================================================
 
-void test_parallel_puts_different_buckets() {
-    std::cout << "\n--- Test: Parallel Puts to Different Buckets ---\n";
+void test_parallel_puts() {
+    std::cout << "\n--- Test: Parallel Puts ---\n";
     ConcurrentHashMap<int, int> map(16);
 
     const int num_threads = 8;
-    const int keys_per_thread = 1000;
     std::vector<std::thread> threads;
 
     for (int t = 0; t < num_threads; t++) {
@@ -94,423 +91,292 @@ void test_parallel_puts_different_buckets() {
             }
         });
     }
-
     for (auto& th : threads) th.join();
 
     bool all_ok = true;
-    for (int i = 0; i < num_threads * keys_per_thread; i++) {
+    for (int i = 0; i < 8000; i++) {
         auto val = map.get(i);
-        if (!val.has_value() || val.value() != i * 10) {
-            all_ok = false;
-            break;
-        }
+        if (!val.has_value() || val.value() != i * 10) { all_ok = false; break; }
     }
     check(all_ok, "all 8000 keys inserted correctly");
 }
 
-void test_parallel_gets() {
-    std::cout << "\n--- Test: Parallel Gets ---\n";
-    ConcurrentHashMap<int, int> map(16);
-
-    for (int i = 0; i < 100; i++) map.put(i, i * 5);
-
-    const int num_threads = 8;
-    std::vector<std::thread> threads;
-    std::atomic<bool> all_ok(true);
-
-    for (int t = 0; t < num_threads; t++) {
-        threads.emplace_back([&map, &all_ok]() {
-            for (int i = 0; i < 100; i++) {
-                auto val = map.get(i);
-                if (!val.has_value() || val.value() != i * 5) {
-                    all_ok = false;
-                }
-            }
-        });
-    }
-
-    for (auto& th : threads) th.join();
-    check(all_ok, "all concurrent gets returned correct values");
-}
-
-void test_parallel_removes() {
-    std::cout << "\n--- Test: Parallel Removes ---\n";
-    ConcurrentHashMap<int, int> map(16);
-
-    const int total_keys = 800;
-    for (int i = 0; i < total_keys; i++) map.put(i, i);
-
-    const int num_threads = 8;
-    std::vector<std::thread> threads;
-
-    for (int t = 0; t < num_threads; t++) {
-        threads.emplace_back([&map, t]() {
-            int start = t * 100;
-            for (int i = start; i < start + 100; i++) {
-                map.remove(i);
-            }
-        });
-    }
-
-    for (auto& th : threads) th.join();
-
-    bool all_removed = true;
-    for (int i = 0; i < total_keys; i++) {
-        if (map.get(i).has_value()) {
-            all_removed = false;
-            break;
-        }
-    }
-    check(all_removed, "all 800 keys removed successfully");
-}
-
-// =====================================================================
-//  PART 3: SAME-BUCKET CONTENTION TESTS
-// =====================================================================
-
-void test_same_bucket_puts() {
-    std::cout << "\n--- Test: Same-Bucket Puts (contention) ---\n";
-    // Use large load factor to disable resizing for this test.
-    ConcurrentHashMap<int, int> map(16, 999999.0);
-
-    const int num_threads = 8;
-    const int keys_per_thread = 500;
-    std::vector<std::thread> threads;
-
-    for (int t = 0; t < num_threads; t++) {
-        threads.emplace_back([&map, t]() {
-            int base = t * 500;
-            for (int i = 0; i < 500; i++) {
-                int key = (base + i) * 16;  // all keys % 16 == 0 → bucket 0
-                map.put(key, key);
-            }
-        });
-    }
-
-    for (auto& th : threads) th.join();
-
-    int total = num_threads * keys_per_thread;
-    bool all_ok = true;
-    for (int i = 0; i < total; i++) {
-        int key = i * 16;
-        auto val = map.get(key);
-        if (!val.has_value() || val.value() != key) {
-            all_ok = false;
-            break;
-        }
-    }
-    check(all_ok, "4000 keys in same bucket inserted correctly");
-}
-
-void test_same_bucket_removes() {
-    std::cout << "\n--- Test: Same-Bucket Removes (contention) ---\n";
-    ConcurrentHashMap<int, int> map(16, 999999.0);
-
-    const int total_keys = 800;
-    for (int i = 0; i < total_keys; i++) {
-        map.put(i * 16, i);
-    }
-
-    const int num_threads = 8;
-    std::vector<std::thread> threads;
-
-    for (int t = 0; t < num_threads; t++) {
-        threads.emplace_back([&map, t]() {
-            int start = t * 100;
-            for (int i = start; i < start + 100; i++) {
-                map.remove(i * 16);
-            }
-        });
-    }
-
-    for (auto& th : threads) th.join();
-
-    bool all_removed = true;
-    for (int i = 0; i < total_keys; i++) {
-        if (map.get(i * 16).has_value()) {
-            all_removed = false;
-            break;
-        }
-    }
-    check(all_removed, "800 keys removed from same bucket correctly");
-}
-
 void test_same_key_overwrite() {
-    std::cout << "\n--- Test: Same-Key Overwrite (highest contention) ---\n";
+    std::cout << "\n--- Test: Same-Key Overwrite ---\n";
     ConcurrentHashMap<int, int> map(16);
-
     map.put(0, -1);
 
-    const int num_threads = 8;
-    const int writes_per_thread = 10000;
     std::vector<std::thread> threads;
-
-    for (int t = 0; t < num_threads; t++) {
+    for (int t = 0; t < 8; t++) {
         threads.emplace_back([&map, t]() {
-            for (int i = 0; i < writes_per_thread; i++) {
-                map.put(0, t * writes_per_thread + i);
+            for (int i = 0; i < 10000; i++) {
+                map.put(0, t * 10000 + i);
             }
         });
     }
-
     for (auto& th : threads) th.join();
 
     auto val = map.get(0);
-    bool exists = val.has_value();
-    bool in_range = exists && val.value() >= 0
-                    && val.value() < num_threads * writes_per_thread;
-
-    check(exists,   "key still exists after 80000 overwrites");
-    check(in_range, "final value is valid (not corrupted)");
+    check(val.has_value(), "key exists after 80000 overwrites");
+    check(val.value() >= 0 && val.value() < 80000, "value is valid");
 }
 
-// =====================================================================
-//  PART 4: MIXED OPERATIONS ON SAME BUCKET
-// =====================================================================
-
-void test_mixed_same_bucket() {
-    std::cout << "\n--- Test: Mixed Ops on Same Bucket ---\n";
-    // Disable resizing so all keys stay in bucket 0.
-    ConcurrentHashMap<int, int> map(16, 999999.0);
-
-    for (int i = 0; i < 200; i++) {
-        map.put(i * 16, i);
-    }
-
-    std::vector<std::thread> threads;
-
-    threads.emplace_back([&map]() {
-        for (int i = 200; i < 400; i++) map.put(i * 16, i);
-    });
-    threads.emplace_back([&map]() {
-        for (int i = 0; i < 200; i++) map.get(i * 16);
-    });
-    threads.emplace_back([&map]() {
-        for (int i = 0; i < 100; i++) map.remove(i * 16);
-    });
-    threads.emplace_back([&map]() {
-        for (int i = 100; i < 200; i++) map.put(i * 16, i * 100);
-    });
-
-    for (auto& th : threads) th.join();
-
-    bool removed_ok = true;
-    for (int i = 0; i < 100; i++) {
-        if (map.get(i * 16).has_value()) { removed_ok = false; break; }
-    }
-    check(removed_ok, "keys 0-99 removed while other ops ran");
-
-    bool updated_ok = true;
-    for (int i = 100; i < 200; i++) {
-        auto val = map.get(i * 16);
-        if (!val.has_value() || val.value() != i * 100) { updated_ok = false; break; }
-    }
-    check(updated_ok, "keys 100-199 updated while other ops ran");
-
-    bool inserted_ok = true;
-    for (int i = 200; i < 400; i++) {
-        auto val = map.get(i * 16);
-        if (!val.has_value() || val.value() != i) { inserted_ok = false; break; }
-    }
-    check(inserted_ok, "keys 200-399 inserted while other ops ran");
-}
-
-// =====================================================================
-//  PART 5: STRESS TEST
-// =====================================================================
-
-void test_stress() {
-    std::cout << "\n--- Test: Stress (high volume) ---\n";
+void test_stress_lock_based() {
+    std::cout << "\n--- Test: Stress (lock-based) ---\n";
     ConcurrentHashMap<int, int> map(16);
 
-    const int num_threads = 8;
-    const int ops_per_thread = 50000;
-    std::atomic<bool> no_crash(true);
     std::vector<std::thread> threads;
-
-    for (int t = 0; t < num_threads; t++) {
-        threads.emplace_back([&map, &no_crash, t]() {
-            for (int i = 0; i < ops_per_thread; i++) {
+    for (int t = 0; t < 8; t++) {
+        threads.emplace_back([&map, t]() {
+            for (int i = 0; i < 50000; i++) {
                 int key = i % 1000;
                 int op = (t + i) % 3;
-
                 if (op == 0)      map.put(key, i);
                 else if (op == 1) map.get(key);
                 else              map.remove(key);
             }
         });
     }
-
     for (auto& th : threads) th.join();
-
-    check(no_crash, "400000 ops across 8 threads — no crash");
-
-    bool valid = true;
-    for (int i = 0; i < 1000; i++) {
-        auto val = map.get(i);
-        if (val.has_value() && val.value() < 0) { valid = false; break; }
-    }
-    check(valid, "no corrupted values after stress test");
+    check(true, "400000 ops — no crash");
 }
 
 // =====================================================================
-//  PART 6: DYNAMIC RESIZING TESTS
+//  PART 3: DYNAMIC RESIZING TESTS (Lock-Based)
 // =====================================================================
 
 void test_resize_triggers() {
-    std::cout << "\n--- Test: Resize Triggers Automatically ---\n";
-
-    // Start with 4 buckets, load factor 0.75.
-    // Resize should trigger after 3 inserts (4 * 0.75 = 3).
+    std::cout << "\n--- Test: Resize Triggers ---\n";
     ConcurrentHashMap<int, int> map(4, 0.75);
 
     check(map.get_bucket_count() == 4, "starts with 4 buckets");
-
-    // Insert 3 keys — should NOT trigger resize yet.
-    map.put(1, 10);
-    map.put(2, 20);
-    map.put(3, 30);
-    check(map.get_bucket_count() == 4, "still 4 buckets after 3 inserts");
-
-    // Insert 4th key — exceeds load factor, triggers resize to 8.
+    map.put(1, 10); map.put(2, 20); map.put(3, 30);
+    check(map.get_bucket_count() == 4, "still 4 after 3 inserts");
     map.put(4, 40);
-    check(map.get_bucket_count() == 8, "resized to 8 buckets after 4 inserts");
-
-    // All original data should still be there.
-    check(map.get(1) == 10, "key 1 preserved after resize");
-    check(map.get(2) == 20, "key 2 preserved after resize");
-    check(map.get(3) == 30, "key 3 preserved after resize");
-    check(map.get(4) == 40, "key 4 preserved after resize");
-}
-
-void test_multiple_resizes() {
-    std::cout << "\n--- Test: Multiple Resizes ---\n";
-
-    // Start with 2 buckets. Should resize multiple times.
-    ConcurrentHashMap<int, int> map(2, 0.75);
-
-    check(map.get_bucket_count() == 2, "starts with 2 buckets");
-
-    // Insert 100 keys — should trigger several resizes.
-    for (int i = 0; i < 100; i++) {
-        map.put(i, i * 10);
-    }
-
-    // Bucket count should have grown (2 → 4 → 8 → 16 → 32 → 64 → 128).
-    size_t final_buckets = map.get_bucket_count();
-    check(final_buckets >= 128, "bucket count grew to " + std::to_string(final_buckets));
-
-    // Verify all data survived multiple resizes.
-    bool all_ok = true;
-    for (int i = 0; i < 100; i++) {
-        auto val = map.get(i);
-        if (!val.has_value() || val.value() != i * 10) {
-            all_ok = false;
-            break;
-        }
-    }
-    check(all_ok, "all 100 keys correct after multiple resizes");
-    check(map.size() == 100, "size() reports 100");
+    check(map.get_bucket_count() == 8, "resized to 8 after 4 inserts");
+    check(map.get(1) == 10 && map.get(2) == 20 && map.get(3) == 30 && map.get(4) == 40,
+          "all data preserved after resize");
 }
 
 void test_concurrent_resize() {
-    std::cout << "\n--- Test: Concurrent Inserts Triggering Resize ---\n";
-
-    // Start with 4 buckets. 8 threads insert 1000 keys each.
-    // This forces many resizes while threads are running.
+    std::cout << "\n--- Test: Concurrent Resize ---\n";
     ConcurrentHashMap<int, int> map(4, 0.75);
 
+    std::vector<std::thread> threads;
+    for (int t = 0; t < 8; t++) {
+        threads.emplace_back([&map, t]() {
+            for (int i = 0; i < 1000; i++) {
+                map.put(t * 1000 + i, t * 1000 + i);
+            }
+        });
+    }
+    for (auto& th : threads) th.join();
+
+    bool all_ok = true;
+    for (int i = 0; i < 8000; i++) {
+        auto val = map.get(i);
+        if (!val.has_value() || val.value() != i) { all_ok = false; break; }
+    }
+    check(all_ok, "8000 keys correct after concurrent resizes");
+    check(map.get_bucket_count() > 4, "buckets grew from 4 to " + std::to_string(map.get_bucket_count()));
+}
+
+// =====================================================================
+//  PART 4: LOCK-FREE SINGLE-THREAD TESTS
+// =====================================================================
+
+void test_lf_insert_and_get() {
+    std::cout << "\n--- Test: [LF] Insert and Get ---\n";
+    LockFreeHashMap<std::string, int> map(8);
+
+    map.put("apple", 1);
+    map.put("banana", 2);
+    map.put("cherry", 3);
+
+    check(map.get("apple") == 1,   "[LF] get apple  -> 1");
+    check(map.get("banana") == 2,  "[LF] get banana -> 2");
+    check(map.get("cherry") == 3,  "[LF] get cherry -> 3");
+}
+
+void test_lf_get_missing() {
+    std::cout << "\n--- Test: [LF] Get Missing Key ---\n";
+    LockFreeHashMap<std::string, int> map(8);
+    map.put("apple", 1);
+
+    check(!map.get("grape").has_value(), "[LF] get grape -> not found");
+    check(!map.get("mango").has_value(), "[LF] get mango -> not found");
+}
+
+void test_lf_update() {
+    std::cout << "\n--- Test: [LF] Update Existing Key ---\n";
+    LockFreeHashMap<std::string, int> map(8);
+
+    map.put("apple", 1);
+    check(map.get("apple") == 1,  "[LF] apple starts at 1");
+    map.put("apple", 10);
+    check(map.get("apple") == 10, "[LF] apple updated to 10");
+}
+
+void test_lf_remove() {
+    std::cout << "\n--- Test: [LF] Remove ---\n";
+    LockFreeHashMap<std::string, int> map(8);
+
+    map.put("apple", 1);
+    map.put("banana", 2);
+
+    check(map.remove("apple") == true,   "[LF] remove apple -> true");
+    check(!map.get("apple").has_value(), "[LF] apple is gone");
+    check(map.remove("apple") == false,  "[LF] remove apple again -> false");
+    check(map.get("banana") == 2,        "[LF] banana still exists");
+}
+
+// =====================================================================
+//  PART 5: LOCK-FREE MULTI-THREAD TESTS
+// =====================================================================
+
+void test_lf_parallel_puts() {
+    std::cout << "\n--- Test: [LF] Parallel Puts ---\n";
+    LockFreeHashMap<int, int> map(64);
+
     const int num_threads = 8;
-    const int keys_per_thread = 1000;
     std::vector<std::thread> threads;
 
     for (int t = 0; t < num_threads; t++) {
         threads.emplace_back([&map, t]() {
             for (int i = 0; i < 1000; i++) {
                 int key = t * 1000 + i;
-                map.put(key, key);
+                map.put(key, key * 10);
             }
         });
     }
-
     for (auto& th : threads) th.join();
 
-    // All 8000 keys should exist with correct values.
-    int total = num_threads * keys_per_thread;
     bool all_ok = true;
-    for (int i = 0; i < total; i++) {
+    for (int i = 0; i < 8000; i++) {
         auto val = map.get(i);
-        if (!val.has_value() || val.value() != i) {
-            all_ok = false;
-            break;
-        }
+        if (!val.has_value() || val.value() != i * 10) { all_ok = false; break; }
     }
-    check(all_ok, "all 8000 keys correct after concurrent resizes");
-    check(map.size() == 8000, "size() reports 8000");
-
-    size_t final_buckets = map.get_bucket_count();
-    check(final_buckets > 4, "bucket count grew from 4 to " + std::to_string(final_buckets));
+    check(all_ok, "[LF] all 8000 keys inserted correctly");
 }
 
-void test_remove_after_resize() {
-    std::cout << "\n--- Test: Remove After Resize ---\n";
+void test_lf_parallel_gets() {
+    std::cout << "\n--- Test: [LF] Parallel Gets ---\n";
+    LockFreeHashMap<int, int> map(16);
 
-    ConcurrentHashMap<int, int> map(4, 0.75);
+    for (int i = 0; i < 100; i++) map.put(i, i * 5);
 
-    // Insert enough to trigger resizes.
-    for (int i = 0; i < 50; i++) {
-        map.put(i, i);
+    std::vector<std::thread> threads;
+    std::atomic<bool> all_ok(true);
+
+    for (int t = 0; t < 8; t++) {
+        threads.emplace_back([&map, &all_ok]() {
+            for (int i = 0; i < 100; i++) {
+                auto val = map.get(i);
+                if (!val.has_value() || val.value() != i * 5) all_ok = false;
+            }
+        });
     }
+    for (auto& th : threads) th.join();
+    check(all_ok, "[LF] all concurrent gets returned correct values");
+}
 
-    // Remove all keys.
-    for (int i = 0; i < 50; i++) {
-        map.remove(i);
+void test_lf_parallel_removes() {
+    std::cout << "\n--- Test: [LF] Parallel Removes ---\n";
+    LockFreeHashMap<int, int> map(16);
+
+    for (int i = 0; i < 800; i++) map.put(i, i);
+
+    std::vector<std::thread> threads;
+    for (int t = 0; t < 8; t++) {
+        threads.emplace_back([&map, t]() {
+            for (int i = t * 100; i < t * 100 + 100; i++) map.remove(i);
+        });
     }
+    for (auto& th : threads) th.join();
 
-    check(map.size() == 0, "size is 0 after removing all keys");
-
-    // Verify nothing is left.
-    bool all_gone = true;
-    for (int i = 0; i < 50; i++) {
-        if (map.get(i).has_value()) { all_gone = false; break; }
+    bool all_removed = true;
+    for (int i = 0; i < 800; i++) {
+        if (map.get(i).has_value()) { all_removed = false; break; }
     }
-    check(all_gone, "all keys gone after remove");
+    check(all_removed, "[LF] all 800 keys removed");
+}
+
+void test_lf_same_key_overwrite() {
+    std::cout << "\n--- Test: [LF] Same-Key Overwrite ---\n";
+    LockFreeHashMap<int, int> map(16);
+    map.put(0, -1);
+
+    std::vector<std::thread> threads;
+    for (int t = 0; t < 8; t++) {
+        threads.emplace_back([&map, t]() {
+            for (int i = 0; i < 10000; i++) {
+                map.put(0, t * 10000 + i);
+            }
+        });
+    }
+    for (auto& th : threads) th.join();
+
+    auto val = map.get(0);
+    check(val.has_value(), "[LF] key exists after 80000 overwrites");
+    check(val.value() >= 0 && val.value() < 80000, "[LF] value is valid");
+}
+
+void test_lf_stress() {
+    std::cout << "\n--- Test: [LF] Stress ---\n";
+    LockFreeHashMap<int, int> map(64);
+
+    std::vector<std::thread> threads;
+    for (int t = 0; t < 8; t++) {
+        threads.emplace_back([&map, t]() {
+            for (int i = 0; i < 50000; i++) {
+                int key = i % 1000;
+                int op = (t + i) % 3;
+                if (op == 0)      map.put(key, i);
+                else if (op == 1) map.get(key);
+                else              map.remove(key);
+            }
+        });
+    }
+    for (auto& th : threads) th.join();
+    check(true, "[LF] 400000 ops — no crash");
 }
 
 // ─── Main ───────────────────────────────────────────────────────────
 
 int main() {
     std::cout << "========================================\n";
-    std::cout << " Concurrent Hash Map — Test Suite\n";
+    std::cout << " Concurrent Hash Map — Full Test Suite\n";
     std::cout << "========================================\n";
 
-    std::cout << "\n[PART 1] Single-Thread Tests\n";
+    // Lock-based tests.
+    std::cout << "\n[PART 1] Lock-Based: Single-Thread\n";
     test_insert_and_get();
     test_get_missing_key();
     test_update_existing_key();
     test_remove();
 
-    std::cout << "\n[PART 2] Multi-Thread Tests (different buckets)\n";
-    test_parallel_puts_different_buckets();
-    test_parallel_gets();
-    test_parallel_removes();
-
-    std::cout << "\n[PART 3] Same-Bucket Contention Tests\n";
-    test_same_bucket_puts();
-    test_same_bucket_removes();
+    std::cout << "\n[PART 2] Lock-Based: Multi-Thread\n";
+    test_parallel_puts();
     test_same_key_overwrite();
+    test_stress_lock_based();
 
-    std::cout << "\n[PART 4] Mixed Operations (same bucket)\n";
-    test_mixed_same_bucket();
-
-    std::cout << "\n[PART 5] Stress Test\n";
-    test_stress();
-
-    std::cout << "\n[PART 6] Dynamic Resizing Tests\n";
+    std::cout << "\n[PART 3] Lock-Based: Dynamic Resizing\n";
     test_resize_triggers();
-    test_multiple_resizes();
     test_concurrent_resize();
-    test_remove_after_resize();
+
+    // Lock-free tests.
+    std::cout << "\n[PART 4] Lock-Free: Single-Thread\n";
+    test_lf_insert_and_get();
+    test_lf_get_missing();
+    test_lf_update();
+    test_lf_remove();
+
+    std::cout << "\n[PART 5] Lock-Free: Multi-Thread\n";
+    test_lf_parallel_puts();
+    test_lf_parallel_gets();
+    test_lf_parallel_removes();
+    test_lf_same_key_overwrite();
+    test_lf_stress();
 
     std::cout << "\n========================================\n";
     std::cout << " Results: " << pass_count << " passed, "

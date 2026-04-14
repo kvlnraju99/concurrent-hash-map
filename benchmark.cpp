@@ -144,15 +144,23 @@ void compare(const std::string& label,
              size_t buckets, int max_threads) {
     std::cout << "\n--- " << label << " (" << TOTAL_OPS << " ops, "
               << buckets << " buckets) ---\n";
-    std::cout << "Threads | Locked (ms) | Lock-Free (ms) | Winner\n";
-    std::cout << "--------|-------------|----------------|--------\n";
+    std::cout << "Threads | Locked (ms) | Speedup | Lock-Free (ms) | Speedup | Winner\n";
+    std::cout << "--------|-------------|---------|----------------|---------|--------\n";
+
+    // Run 1-thread baseline first.
+    double base_locked   = locked_fn(1, buckets);
+    double base_lockfree = lockfree_fn(1, buckets);
 
     for (int t = 1; t <= max_threads; t *= 2) {
-        double t_locked   = locked_fn(t, buckets);
-        double t_lockfree = lockfree_fn(t, buckets);
+        double t_locked   = (t == 1) ? base_locked   : locked_fn(t, buckets);
+        double t_lockfree = (t == 1) ? base_lockfree : lockfree_fn(t, buckets);
+
+        double sp_locked   = base_locked / t_locked;
+        double sp_lockfree = base_lockfree / t_lockfree;
+
         const char* winner = (t_lockfree < t_locked) ? "Lock-Free" : "Locked";
-        printf("   %2d   | %11.1f | %14.1f | %s\n",
-               t, t_locked, t_lockfree, winner);
+        printf("   %2d   | %11.1f | %5.2fx  | %14.1f | %5.2fx  | %s\n",
+               t, t_locked, sp_locked, t_lockfree, sp_lockfree, winner);
     }
 }
 

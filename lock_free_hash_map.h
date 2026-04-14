@@ -39,7 +39,12 @@ private:
             : key(k), value(v), deleted(false), next(nullptr) {}
     };
 
-    std::unique_ptr<std::atomic<Node*>[]> buckets;  // array of atomic head pointers
+    struct alignas(64) Bucket {
+        std::atomic<Node*> head;
+        Bucket() : head(nullptr) {}
+    };
+
+    std::unique_ptr<Bucket[]> buckets;  // array of aligned bucket head pointers
     size_t bucket_count;
     std::atomic<size_t> element_count;
 
@@ -51,17 +56,14 @@ private:
 public:
 
     explicit LockFreeHashMap(size_t num_buckets = 16)
-        : buckets(new std::atomic<Node*>[num_buckets]),
+        : buckets(new Bucket[num_buckets]),
           bucket_count(num_buckets), element_count(0) {
-        for (size_t i = 0; i < num_buckets; i++) {
-            buckets[i].store(nullptr, std::memory_order_relaxed);
-        }
     }
 
     // Clean up all nodes.
     ~LockFreeHashMap() {
         for (size_t i = 0; i < bucket_count; i++) {
-            Node* curr = buckets[i].load(std::memory_order_relaxed);
+            Node* curr = buckets[i].head.load(std::memory_order_relaxed);
             while (curr) {
                 Node* next = curr->next.load(std::memory_order_relaxed);
                 delete curr;
@@ -76,7 +78,7 @@ public:
         size_t idx = get_bucket_index(key);
 
         // Walk the list to see if the key already exists.
-        Node* curr = buckets[idx].load(std::memory_order_acquire);
+        Node* curr = buckets[idx].head.load(std::memory_order_acquire);
         while (curr) {
             if (!curr->deleted.load(std::memory_order_acquire) && curr->key == key) {
                 // Key found — update the value in place.
@@ -88,7 +90,7 @@ public:
 
         // Key not found — create a new node and prepend it using CAS.
         Node* new_node = new Node(key, value);
-        Node* head = buckets[idx].load(std::memory_order_acquire);
+        Node* head = buckets[idx].head.load(std::memory_order_acquire);
 
         do {
             // Point new node's next to the current head.
@@ -96,7 +98,7 @@ public:
 
             // CAS: if head hasn't changed, swap it to our new node.
             // If another thread changed head, CAS fails and we retry.
-        } while (!buckets[idx].compare_exchange_weak(
+        } while (!buckets[idx].head.compare_exchange_weak(
                     head, new_node,
                     std::memory_order_release,
                     std::memory_order_acquire));
@@ -109,7 +111,7 @@ public:
         size_t idx = get_bucket_index(key);
 
         // Walk the list, reading atomic pointers.
-        Node* curr = buckets[idx].load(std::memory_order_acquire);
+        Node* curr = buckets[idx].head.load(std::memory_order_acquire);
         while (curr) {
             if (!curr->deleted.load(std::memory_order_acquire) && curr->key == key) {
                 return curr->value;
@@ -125,7 +127,7 @@ public:
     bool remove(const K& key) {
         size_t idx = get_bucket_index(key);
 
-        Node* curr = buckets[idx].load(std::memory_order_acquire);
+        Node* curr = buckets[idx].head.load(std::memory_order_acquire);
         while (curr) {
             if (!curr->deleted.load(std::memory_order_acquire) && curr->key == key) {
                 // Mark as deleted. Other threads will skip this node.

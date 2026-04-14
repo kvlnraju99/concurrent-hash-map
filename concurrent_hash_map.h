@@ -21,9 +21,10 @@ class ConcurrentHashMap {
 private:
 
     // Each bucket has its own vector and its own shared_mutex.
-    struct Bucket {
-        std::vector<std::pair<K, V>> entries;
-        mutable std::shared_mutex mtx;
+    // alignas(64) pads the bucket to CPU cache line size to prevent False Sharing
+    struct alignas(64) Bucket {
+        std::vector<std::pair<K, V>> entries;  // chain of key-value pairs
+        mutable std::shared_mutex mtx;         // shared for reads, exclusive for writes
     };
 
     // Buckets are heap-allocated (unique_ptr) because shared_mutex

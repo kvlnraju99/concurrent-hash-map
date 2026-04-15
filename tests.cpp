@@ -7,6 +7,7 @@
 
 #include "concurrent_hash_map.h"
 #include "lock_free_hash_map.h"
+#include "lock_free_open_addressing_hash_map.h"
 
 namespace {
 
@@ -514,8 +515,114 @@ void test_lockfree_parallel(TestState& state) {
     }
 }
 
+void test_open_addressing_single_thread(TestState& state) {
+    std::cout << "\n[Open addressing] Single-thread\n";
+
+    {
+        std::cout << "\n--- Insert and Get ---\n";
+        LockFreeOpenAddressingHashMap<int, int> map(64);
+        state.check(map.put(1, 10), "insert 1");
+        state.check(map.put(2, 20), "insert 2");
+        state.check(map.put(3, 30), "insert 3");
+        state.check(map.get(1) == 10, "get 1 -> 10");
+        state.check(map.get(2) == 20, "get 2 -> 20");
+        state.check(map.get(3) == 30, "get 3 -> 30");
+    }
+
+    {
+        std::cout << "\n--- Update, Remove, Size ---\n";
+        LockFreeOpenAddressingHashMap<int, int> map(32);
+        state.check(map.size() == 0, "size starts at zero");
+        state.check(map.put(7, 70), "insert 7");
+        state.check(map.put(7, 99), "update 7");
+        state.check(map.get(7) == 99, "updated value visible");
+        state.check(map.size() == 1, "size ignores updates");
+        state.check(map.remove(7), "remove 7");
+        state.check(!map.get(7).has_value(), "7 removed");
+        state.check(map.size() == 0, "size returns to zero");
+    }
+
+    {
+        std::cout << "\n--- Capacity Boundaries ---\n";
+        LockFreeOpenAddressingHashMap<int, int> map(4);
+        state.check(map.put(0, 0), "insert 0");
+        state.check(map.put(1, 1), "insert 1");
+        state.check(map.put(2, 2), "insert 2");
+        state.check(map.put(3, 3), "insert 3");
+        state.check(!map.put(4, 4), "full table rejects new insert");
+        state.check(map.size() == 4, "size matches full table");
+    }
+}
+
+void test_open_addressing_parallel(TestState& state) {
+    std::cout << "\n[Open addressing] Parallel\n";
+
+    {
+        std::cout << "\n--- Parallel Puts ---\n";
+        LockFreeOpenAddressingHashMap<int, int> map(32768);
+        std::vector<std::thread> threads;
+        for (int t = 0; t < 8; ++t) {
+            threads.emplace_back([&map, t]() {
+                for (int i = 0; i < 1000; ++i) {
+                    const int key = t * 1000 + i;
+                    map.put(key, key * 10);
+                }
+            });
+        }
+        for (auto& thread : threads) {
+            thread.join();
+        }
+
+        bool all_ok = true;
+        for (int i = 0; i < 8000; ++i) {
+            const auto value = map.get(i);
+            if (!value.has_value() || value.value() != i * 10) {
+                all_ok = false;
+                break;
+            }
+        }
+        state.check(all_ok, "all 8000 keys inserted");
+        state.check(map.size() == 8000, "size matches concurrent inserts");
+    }
+
+    {
+        std::cout << "\n--- Parallel Removes ---\n";
+        LockFreeOpenAddressingHashMap<int, int> map(4096);
+        for (int i = 0; i < 1024; ++i) {
+            map.put(i, i);
+        }
+
+        std::vector<std::thread> threads;
+        for (int t = 0; t < 8; ++t) {
+            threads.emplace_back([&map, t]() {
+                for (int i = t * 128; i < (t + 1) * 128; ++i) {
+                    map.remove(i);
+                }
+            });
+        }
+        for (auto& thread : threads) {
+            thread.join();
+        }
+
+        bool all_removed = true;
+        for (int i = 0; i < 1024; ++i) {
+            if (map.get(i).has_value()) {
+                all_removed = false;
+                break;
+            }
+        }
+        state.check(all_removed, "all 1024 keys removed");
+        state.check(map.size() == 0, "size returns to zero after removes");
+    }
+
+    run_disjoint_insert_remove_round<LockFreeOpenAddressingHashMap<int, int>>(
+        state, "Disjoint insert/remove invariants", 16384, 8, 256);
+    run_same_key_race_rounds<LockFreeOpenAddressingHashMap<int, int>>(
+        state, "Repeated same-key race", 1024, 6, 8, 1000);
+}
+
 void print_usage(const char* program) {
-    std::cout << "Usage: " << program << " [all|locked|lockfree]\n";
+    std::cout << "Usage: " << program << " [all|locked|lockfree|open]\n";
 }
 
 }  // namespace
@@ -526,7 +633,7 @@ int main(int argc, char* argv[]) {
         suite = argv[1];
     }
 
-    if (suite != "all" && suite != "locked" && suite != "lockfree") {
+    if (suite != "all" && suite != "locked" && suite != "lockfree" && suite != "open") {
         print_usage(argv[0]);
         return 1;
     }
@@ -544,6 +651,10 @@ int main(int argc, char* argv[]) {
     if (suite == "all" || suite == "lockfree") {
         test_lockfree_single_thread(state);
         test_lockfree_parallel(state);
+    }
+    if (suite == "all" || suite == "open") {
+        test_open_addressing_single_thread(state);
+        test_open_addressing_parallel(state);
     }
 
     std::cout << "\n========================================\n";

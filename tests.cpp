@@ -353,6 +353,21 @@ void test_lockfree_single_thread(TestState& state) {
         state.check(map.size() == 0, "size decreases after removes");
         state.check(stats.deleted_nodes == 0, "deleted nodes are unlinked in single-thread cleanup");
     }
+
+    {
+        std::cout << "\n--- Resize ---\n";
+        LockFreeHashMap<int, int> map(4, false, 0.75);
+        state.check(map.get_bucket_count() == 4, "starts with 4 buckets");
+        map.put(1, 10);
+        map.put(2, 20);
+        map.put(3, 30);
+        state.check(map.get_bucket_count() == 4, "still 4 after 3 inserts");
+        map.put(4, 40);
+        state.check(map.get_bucket_count() == 8, "resized to 8 after 4 inserts");
+        state.check(map.size() == 4, "size preserved after resize");
+        state.check(map.get(1) == 10, "resize keeps key 1");
+        state.check(map.get(4) == 40, "resize keeps key 4");
+    }
 }
 
 void test_lockfree_parallel(TestState& state) {
@@ -511,6 +526,36 @@ void test_lockfree_parallel(TestState& state) {
         const auto stats = map.get_bucket_stats();
         state.check(map.size() == 0, "reused map returns to zero size");
         state.check(stats.deleted_nodes == 0, "deleted nodes do not accumulate after reuse");
+    }
+
+    {
+        std::cout << "\n--- Concurrent Resize ---\n";
+        LockFreeHashMap<int, int> map(4, false, 0.75);
+        std::vector<std::thread> threads;
+        for (int t = 0; t < 8; ++t) {
+            threads.emplace_back([&map, t]() {
+                for (int i = 0; i < 1000; ++i) {
+                    const int key = t * 1000 + i;
+                    map.put(key, key);
+                }
+            });
+        }
+        for (auto& thread : threads) {
+            thread.join();
+        }
+
+        bool all_ok = true;
+        for (int i = 0; i < 8000; ++i) {
+            const auto value = map.get(i);
+            if (!value.has_value() || value.value() != i) {
+                all_ok = false;
+                break;
+            }
+        }
+
+        state.check(all_ok, "concurrent resize preserves values");
+        state.check(map.get_bucket_count() > 4, "bucket count grows after concurrent inserts");
+        state.check(map.size() == 8000, "concurrent resize keeps exact size");
     }
 }
 

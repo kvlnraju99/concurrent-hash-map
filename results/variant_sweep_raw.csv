@@ -1,0 +1,541 @@
+variant,branch,description,workload,buckets,threads,key_space,total_ops,repeat,ms,mops
+locked_dynamic,main,Lock-based dynamic resizing,put,65536,1,16384,16384,1,7.170,2.285
+locked_dynamic,main,Lock-based dynamic resizing,put,65536,1,16384,16384,2,7.106,2.306
+locked_dynamic,main,Lock-based dynamic resizing,put,65536,1,16384,16384,3,6.670,2.456
+locked_dynamic,main,Lock-based dynamic resizing,put,65536,2,16384,16384,1,7.802,2.100
+locked_dynamic,main,Lock-based dynamic resizing,put,65536,2,16384,16384,2,7.622,2.150
+locked_dynamic,main,Lock-based dynamic resizing,put,65536,2,16384,16384,3,7.678,2.134
+locked_dynamic,main,Lock-based dynamic resizing,put,65536,4,16384,16384,1,9.777,1.676
+locked_dynamic,main,Lock-based dynamic resizing,put,65536,4,16384,16384,2,8.089,2.026
+locked_dynamic,main,Lock-based dynamic resizing,put,65536,4,16384,16384,3,8.877,1.846
+locked_dynamic,main,Lock-based dynamic resizing,put,65536,8,16384,16384,1,9.960,1.645
+locked_dynamic,main,Lock-based dynamic resizing,put,65536,8,16384,16384,2,9.869,1.660
+locked_dynamic,main,Lock-based dynamic resizing,put,65536,8,16384,16384,3,8.691,1.885
+locked_dynamic,main,Lock-based dynamic resizing,put,65536,16,16384,16384,1,11.480,1.427
+locked_dynamic,main,Lock-based dynamic resizing,put,65536,16,16384,16384,2,9.501,1.725
+locked_dynamic,main,Lock-based dynamic resizing,put,65536,16,16384,16384,3,11.536,1.420
+locked_dynamic,main,Lock-based dynamic resizing,get,65536,1,16384,65536,1,9.897,6.622
+locked_dynamic,main,Lock-based dynamic resizing,get,65536,1,16384,65536,2,9.786,6.697
+locked_dynamic,main,Lock-based dynamic resizing,get,65536,1,16384,65536,3,9.858,6.648
+locked_dynamic,main,Lock-based dynamic resizing,get,65536,2,16384,65536,1,14.643,4.476
+locked_dynamic,main,Lock-based dynamic resizing,get,65536,2,16384,65536,2,26.584,2.465
+locked_dynamic,main,Lock-based dynamic resizing,get,65536,2,16384,65536,3,22.523,2.910
+locked_dynamic,main,Lock-based dynamic resizing,get,65536,4,16384,65536,1,25.131,2.608
+locked_dynamic,main,Lock-based dynamic resizing,get,65536,4,16384,65536,2,23.163,2.829
+locked_dynamic,main,Lock-based dynamic resizing,get,65536,4,16384,65536,3,19.512,3.359
+locked_dynamic,main,Lock-based dynamic resizing,get,65536,8,16384,65536,1,24.860,2.636
+locked_dynamic,main,Lock-based dynamic resizing,get,65536,8,16384,65536,2,19.107,3.430
+locked_dynamic,main,Lock-based dynamic resizing,get,65536,8,16384,65536,3,20.234,3.239
+locked_dynamic,main,Lock-based dynamic resizing,get,65536,16,16384,65536,1,27.078,2.420
+locked_dynamic,main,Lock-based dynamic resizing,get,65536,16,16384,65536,2,25.593,2.561
+locked_dynamic,main,Lock-based dynamic resizing,get,65536,16,16384,65536,3,25.088,2.612
+locked_dynamic,main,Lock-based dynamic resizing,mixed,65536,1,16384,65536,1,14.050,4.665
+locked_dynamic,main,Lock-based dynamic resizing,mixed,65536,1,16384,65536,2,13.978,4.688
+locked_dynamic,main,Lock-based dynamic resizing,mixed,65536,1,16384,65536,3,14.053,4.664
+locked_dynamic,main,Lock-based dynamic resizing,mixed,65536,2,16384,65536,1,25.948,2.526
+locked_dynamic,main,Lock-based dynamic resizing,mixed,65536,2,16384,65536,2,22.709,2.886
+locked_dynamic,main,Lock-based dynamic resizing,mixed,65536,2,16384,65536,3,29.608,2.213
+locked_dynamic,main,Lock-based dynamic resizing,mixed,65536,4,16384,65536,1,29.024,2.258
+locked_dynamic,main,Lock-based dynamic resizing,mixed,65536,4,16384,65536,2,25.746,2.545
+locked_dynamic,main,Lock-based dynamic resizing,mixed,65536,4,16384,65536,3,23.974,2.734
+locked_dynamic,main,Lock-based dynamic resizing,mixed,65536,8,16384,65536,1,39.987,1.639
+locked_dynamic,main,Lock-based dynamic resizing,mixed,65536,8,16384,65536,2,27.525,2.381
+locked_dynamic,main,Lock-based dynamic resizing,mixed,65536,8,16384,65536,3,28.551,2.295
+locked_dynamic,main,Lock-based dynamic resizing,mixed,65536,16,16384,65536,1,39.670,1.652
+locked_dynamic,main,Lock-based dynamic resizing,mixed,65536,16,16384,65536,2,38.403,1.707
+locked_dynamic,main,Lock-based dynamic resizing,mixed,65536,16,16384,65536,3,38.672,1.695
+locked_dynamic,main,Lock-based dynamic resizing,put,262144,1,65536,65536,1,27.190,2.410
+locked_dynamic,main,Lock-based dynamic resizing,put,262144,1,65536,65536,2,27.079,2.420
+locked_dynamic,main,Lock-based dynamic resizing,put,262144,1,65536,65536,3,27.297,2.401
+locked_dynamic,main,Lock-based dynamic resizing,put,262144,2,65536,65536,1,32.936,1.990
+locked_dynamic,main,Lock-based dynamic resizing,put,262144,2,65536,65536,2,26.612,2.463
+locked_dynamic,main,Lock-based dynamic resizing,put,262144,2,65536,65536,3,28.857,2.271
+locked_dynamic,main,Lock-based dynamic resizing,put,262144,4,65536,65536,1,30.958,2.117
+locked_dynamic,main,Lock-based dynamic resizing,put,262144,4,65536,65536,2,32.622,2.009
+locked_dynamic,main,Lock-based dynamic resizing,put,262144,4,65536,65536,3,35.379,1.852
+locked_dynamic,main,Lock-based dynamic resizing,put,262144,8,65536,65536,1,36.587,1.791
+locked_dynamic,main,Lock-based dynamic resizing,put,262144,8,65536,65536,2,36.121,1.814
+locked_dynamic,main,Lock-based dynamic resizing,put,262144,8,65536,65536,3,36.857,1.778
+locked_dynamic,main,Lock-based dynamic resizing,put,262144,16,65536,65536,1,45.736,1.433
+locked_dynamic,main,Lock-based dynamic resizing,put,262144,16,65536,65536,2,35.197,1.862
+locked_dynamic,main,Lock-based dynamic resizing,put,262144,16,65536,65536,3,44.044,1.488
+locked_dynamic,main,Lock-based dynamic resizing,get,262144,1,65536,262144,1,38.082,6.884
+locked_dynamic,main,Lock-based dynamic resizing,get,262144,1,65536,262144,2,38.883,6.742
+locked_dynamic,main,Lock-based dynamic resizing,get,262144,1,65536,262144,3,41.942,6.250
+locked_dynamic,main,Lock-based dynamic resizing,get,262144,2,65536,262144,1,82.518,3.177
+locked_dynamic,main,Lock-based dynamic resizing,get,262144,2,65536,262144,2,99.656,2.630
+locked_dynamic,main,Lock-based dynamic resizing,get,262144,2,65536,262144,3,123.320,2.126
+locked_dynamic,main,Lock-based dynamic resizing,get,262144,4,65536,262144,1,102.784,2.550
+locked_dynamic,main,Lock-based dynamic resizing,get,262144,4,65536,262144,2,68.038,3.853
+locked_dynamic,main,Lock-based dynamic resizing,get,262144,4,65536,262144,3,105.381,2.488
+locked_dynamic,main,Lock-based dynamic resizing,get,262144,8,65536,262144,1,95.540,2.744
+locked_dynamic,main,Lock-based dynamic resizing,get,262144,8,65536,262144,2,89.564,2.927
+locked_dynamic,main,Lock-based dynamic resizing,get,262144,8,65536,262144,3,83.994,3.121
+locked_dynamic,main,Lock-based dynamic resizing,get,262144,16,65536,262144,1,94.681,2.769
+locked_dynamic,main,Lock-based dynamic resizing,get,262144,16,65536,262144,2,92.287,2.841
+locked_dynamic,main,Lock-based dynamic resizing,get,262144,16,65536,262144,3,96.424,2.719
+locked_dynamic,main,Lock-based dynamic resizing,mixed,262144,1,65536,262144,1,56.556,4.635
+locked_dynamic,main,Lock-based dynamic resizing,mixed,262144,1,65536,262144,2,55.760,4.701
+locked_dynamic,main,Lock-based dynamic resizing,mixed,262144,1,65536,262144,3,54.986,4.767
+locked_dynamic,main,Lock-based dynamic resizing,mixed,262144,2,65536,262144,1,96.618,2.713
+locked_dynamic,main,Lock-based dynamic resizing,mixed,262144,2,65536,262144,2,78.628,3.334
+locked_dynamic,main,Lock-based dynamic resizing,mixed,262144,2,65536,262144,3,76.985,3.405
+locked_dynamic,main,Lock-based dynamic resizing,mixed,262144,4,65536,262144,1,109.592,2.392
+locked_dynamic,main,Lock-based dynamic resizing,mixed,262144,4,65536,262144,2,98.353,2.665
+locked_dynamic,main,Lock-based dynamic resizing,mixed,262144,4,65536,262144,3,82.958,3.160
+locked_dynamic,main,Lock-based dynamic resizing,mixed,262144,8,65536,262144,1,112.916,2.322
+locked_dynamic,main,Lock-based dynamic resizing,mixed,262144,8,65536,262144,2,111.378,2.354
+locked_dynamic,main,Lock-based dynamic resizing,mixed,262144,8,65536,262144,3,114.675,2.286
+locked_dynamic,main,Lock-based dynamic resizing,mixed,262144,16,65536,262144,1,99.340,2.639
+locked_dynamic,main,Lock-based dynamic resizing,mixed,262144,16,65536,262144,2,117.807,2.225
+locked_dynamic,main,Lock-based dynamic resizing,mixed,262144,16,65536,262144,3,118.379,2.214
+locked_dynamic,main,Lock-based dynamic resizing,put,1048576,1,262144,262144,1,105.945,2.474
+locked_dynamic,main,Lock-based dynamic resizing,put,1048576,1,262144,262144,2,108.324,2.420
+locked_dynamic,main,Lock-based dynamic resizing,put,1048576,1,262144,262144,3,106.976,2.450
+locked_dynamic,main,Lock-based dynamic resizing,put,1048576,2,262144,262144,1,119.982,2.185
+locked_dynamic,main,Lock-based dynamic resizing,put,1048576,2,262144,262144,2,94.718,2.768
+locked_dynamic,main,Lock-based dynamic resizing,put,1048576,2,262144,262144,3,117.545,2.230
+locked_dynamic,main,Lock-based dynamic resizing,put,1048576,4,262144,262144,1,140.247,1.869
+locked_dynamic,main,Lock-based dynamic resizing,put,1048576,4,262144,262144,2,123.057,2.130
+locked_dynamic,main,Lock-based dynamic resizing,put,1048576,4,262144,262144,3,158.038,1.659
+locked_dynamic,main,Lock-based dynamic resizing,put,1048576,8,262144,262144,1,117.650,2.228
+locked_dynamic,main,Lock-based dynamic resizing,put,1048576,8,262144,262144,2,158.676,1.652
+locked_dynamic,main,Lock-based dynamic resizing,put,1048576,8,262144,262144,3,160.407,1.634
+locked_dynamic,main,Lock-based dynamic resizing,put,1048576,16,262144,262144,1,172.225,1.522
+locked_dynamic,main,Lock-based dynamic resizing,put,1048576,16,262144,262144,2,174.397,1.503
+locked_dynamic,main,Lock-based dynamic resizing,put,1048576,16,262144,262144,3,162.156,1.617
+locked_dynamic,main,Lock-based dynamic resizing,get,1048576,1,262144,1048576,1,156.048,6.720
+locked_dynamic,main,Lock-based dynamic resizing,get,1048576,1,262144,1048576,2,163.534,6.412
+locked_dynamic,main,Lock-based dynamic resizing,get,1048576,1,262144,1048576,3,149.859,6.997
+locked_dynamic,main,Lock-based dynamic resizing,get,1048576,2,262144,1048576,1,259.444,4.042
+locked_dynamic,main,Lock-based dynamic resizing,get,1048576,2,262144,1048576,2,307.337,3.412
+locked_dynamic,main,Lock-based dynamic resizing,get,1048576,2,262144,1048576,3,288.230,3.638
+locked_dynamic,main,Lock-based dynamic resizing,get,1048576,4,262144,1048576,1,318.754,3.290
+locked_dynamic,main,Lock-based dynamic resizing,get,1048576,4,262144,1048576,2,315.708,3.321
+locked_dynamic,main,Lock-based dynamic resizing,get,1048576,4,262144,1048576,3,232.886,4.503
+locked_dynamic,main,Lock-based dynamic resizing,get,1048576,8,262144,1048576,1,343.494,3.053
+locked_dynamic,main,Lock-based dynamic resizing,get,1048576,8,262144,1048576,2,412.335,2.543
+locked_dynamic,main,Lock-based dynamic resizing,get,1048576,8,262144,1048576,3,346.114,3.030
+locked_dynamic,main,Lock-based dynamic resizing,get,1048576,16,262144,1048576,1,462.598,2.267
+locked_dynamic,main,Lock-based dynamic resizing,get,1048576,16,262144,1048576,2,528.628,1.984
+locked_dynamic,main,Lock-based dynamic resizing,get,1048576,16,262144,1048576,3,401.426,2.612
+locked_dynamic,main,Lock-based dynamic resizing,mixed,1048576,1,262144,1048576,1,255.275,4.108
+locked_dynamic,main,Lock-based dynamic resizing,mixed,1048576,1,262144,1048576,2,227.012,4.619
+locked_dynamic,main,Lock-based dynamic resizing,mixed,1048576,1,262144,1048576,3,257.519,4.072
+locked_dynamic,main,Lock-based dynamic resizing,mixed,1048576,2,262144,1048576,1,289.186,3.626
+locked_dynamic,main,Lock-based dynamic resizing,mixed,1048576,2,262144,1048576,2,279.485,3.752
+locked_dynamic,main,Lock-based dynamic resizing,mixed,1048576,2,262144,1048576,3,307.797,3.407
+locked_dynamic,main,Lock-based dynamic resizing,mixed,1048576,4,262144,1048576,1,397.761,2.636
+locked_dynamic,main,Lock-based dynamic resizing,mixed,1048576,4,262144,1048576,2,419.810,2.498
+locked_dynamic,main,Lock-based dynamic resizing,mixed,1048576,4,262144,1048576,3,367.630,2.852
+locked_dynamic,main,Lock-based dynamic resizing,mixed,1048576,8,262144,1048576,1,364.250,2.879
+locked_dynamic,main,Lock-based dynamic resizing,mixed,1048576,8,262144,1048576,2,403.617,2.598
+locked_dynamic,main,Lock-based dynamic resizing,mixed,1048576,8,262144,1048576,3,472.528,2.219
+locked_dynamic,main,Lock-based dynamic resizing,mixed,1048576,16,262144,1048576,1,448.092,2.340
+locked_dynamic,main,Lock-based dynamic resizing,mixed,1048576,16,262144,1048576,2,448.699,2.337
+locked_dynamic,main,Lock-based dynamic resizing,mixed,1048576,16,262144,1048576,3,493.162,2.126
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,65536,1,16384,16384,1,4.070,4.025
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,65536,1,16384,16384,2,4.282,3.826
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,65536,1,16384,16384,3,4.285,3.824
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,65536,2,16384,16384,1,8.344,1.964
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,65536,2,16384,16384,2,8.369,1.958
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,65536,2,16384,16384,3,5.166,3.172
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,65536,4,16384,16384,1,5.318,3.081
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,65536,4,16384,16384,2,5.471,2.995
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,65536,4,16384,16384,3,4.024,4.072
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,65536,8,16384,16384,1,5.781,2.834
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,65536,8,16384,16384,2,4.161,3.938
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,65536,8,16384,16384,3,3.937,4.161
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,65536,16,16384,16384,1,4.027,4.069
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,65536,16,16384,16384,2,5.974,2.742
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,65536,16,16384,16384,3,6.067,2.700
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,65536,1,16384,65536,1,2.069,31.674
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,65536,1,16384,65536,2,2.071,31.644
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,65536,1,16384,65536,3,2.056,31.875
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,65536,2,16384,65536,1,1.661,39.450
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,65536,2,16384,65536,2,1.327,49.394
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,65536,2,16384,65536,3,1.413,46.371
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,65536,4,16384,65536,1,1.401,46.791
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,65536,4,16384,65536,2,1.331,49.241
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,65536,4,16384,65536,3,1.171,55.979
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,65536,8,16384,65536,1,1.385,47.306
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,65536,8,16384,65536,2,1.385,47.317
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,65536,8,16384,65536,3,1.327,49.402
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,65536,16,16384,65536,1,2.010,32.604
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,65536,16,16384,65536,2,1.829,35.827
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,65536,16,16384,65536,3,1.851,35.402
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,65536,1,16384,65536,1,7.500,8.738
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,65536,1,16384,65536,2,7.656,8.560
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,65536,1,16384,65536,3,7.653,8.563
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,65536,2,16384,65536,1,9.808,6.682
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,65536,2,16384,65536,2,10.046,6.524
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,65536,2,16384,65536,3,9.680,6.770
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,65536,4,16384,65536,1,9.743,6.727
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,65536,4,16384,65536,2,10.605,6.180
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,65536,4,16384,65536,3,10.404,6.299
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,65536,8,16384,65536,1,10.210,6.419
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,65536,8,16384,65536,2,10.572,6.199
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,65536,8,16384,65536,3,13.031,5.029
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,65536,16,16384,65536,1,11.033,5.940
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,65536,16,16384,65536,2,12.868,5.093
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,65536,16,16384,65536,3,11.017,5.948
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,262144,1,65536,65536,1,15.122,4.334
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,262144,1,65536,65536,2,15.231,4.303
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,262144,1,65536,65536,3,15.308,4.281
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,262144,2,65536,65536,1,15.810,4.145
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,262144,2,65536,65536,2,17.112,3.830
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,262144,2,65536,65536,3,13.437,4.877
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,262144,4,65536,65536,1,21.542,3.042
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,262144,4,65536,65536,2,20.395,3.213
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,262144,4,65536,65536,3,22.022,2.976
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,262144,8,65536,65536,1,19.673,3.331
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,262144,8,65536,65536,2,20.985,3.123
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,262144,8,65536,65536,3,19.424,3.374
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,262144,16,65536,65536,1,19.502,3.361
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,262144,16,65536,65536,2,20.071,3.265
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,262144,16,65536,65536,3,14.168,4.626
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,262144,1,65536,262144,1,8.102,32.354
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,262144,1,65536,262144,2,7.359,35.620
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,262144,1,65536,262144,3,8.156,32.142
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,262144,2,65536,262144,1,6.641,39.475
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,262144,2,65536,262144,2,5.788,45.289
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,262144,2,65536,262144,3,5.536,47.349
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,262144,4,65536,262144,1,3.027,86.590
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,262144,4,65536,262144,2,3.758,69.748
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,262144,4,65536,262144,3,4.091,64.081
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,262144,8,65536,262144,1,3.099,84.578
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,262144,8,65536,262144,2,3.093,84.763
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,262144,8,65536,262144,3,2.914,89.961
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,262144,16,65536,262144,1,2.705,96.909
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,262144,16,65536,262144,2,2.724,96.237
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,262144,16,65536,262144,3,2.652,98.864
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,262144,1,65536,262144,1,30.185,8.685
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,262144,1,65536,262144,2,30.946,8.471
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,262144,1,65536,262144,3,33.401,7.848
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,262144,2,65536,262144,1,44.831,5.847
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,262144,2,65536,262144,2,37.736,6.947
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,262144,2,65536,262144,3,40.247,6.513
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,262144,4,65536,262144,1,45.272,5.790
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,262144,4,65536,262144,2,37.160,7.055
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,262144,4,65536,262144,3,41.519,6.314
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,262144,8,65536,262144,1,41.529,6.312
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,262144,8,65536,262144,2,37.691,6.955
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,262144,8,65536,262144,3,41.400,6.332
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,262144,16,65536,262144,1,50.474,5.194
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,262144,16,65536,262144,2,43.631,6.008
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,262144,16,65536,262144,3,45.734,5.732
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,1048576,1,262144,262144,1,62.054,4.224
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,1048576,1,262144,262144,2,60.790,4.312
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,1048576,1,262144,262144,3,63.513,4.127
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,1048576,2,262144,262144,1,57.236,4.580
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,1048576,2,262144,262144,2,51.616,5.079
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,1048576,2,262144,262144,3,87.463,2.997
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,1048576,4,262144,262144,1,89.751,2.921
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,1048576,4,262144,262144,2,62.657,4.184
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,1048576,4,262144,262144,3,77.885,3.366
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,1048576,8,262144,262144,1,73.163,3.583
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,1048576,8,262144,262144,2,76.817,3.413
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,1048576,8,262144,262144,3,65.664,3.992
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,1048576,16,262144,262144,1,75.301,3.481
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,1048576,16,262144,262144,2,79.034,3.317
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,put,1048576,16,262144,262144,3,73.785,3.553
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,1048576,1,262144,1048576,1,55.382,18.933
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,1048576,1,262144,1048576,2,32.476,32.288
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,1048576,1,262144,1048576,3,31.860,32.912
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,1048576,2,262144,1048576,1,24.632,42.570
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,1048576,2,262144,1048576,2,25.728,40.756
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,1048576,2,262144,1048576,3,22.132,47.379
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,1048576,4,262144,1048576,1,15.120,69.349
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,1048576,4,262144,1048576,2,14.743,71.121
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,1048576,4,262144,1048576,3,13.954,75.146
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,1048576,8,262144,1048576,1,9.801,106.988
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,1048576,8,262144,1048576,2,10.344,101.367
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,1048576,8,262144,1048576,3,9.673,108.400
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,1048576,16,262144,1048576,1,10.071,104.119
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,1048576,16,262144,1048576,2,7.396,141.771
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,get,1048576,16,262144,1048576,3,8.926,117.476
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,1048576,1,262144,1048576,1,132.963,7.886
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,1048576,1,262144,1048576,2,138.151,7.590
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,1048576,1,262144,1048576,3,138.450,7.574
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,1048576,2,262144,1048576,1,140.390,7.469
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,1048576,2,262144,1048576,2,142.826,7.342
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,1048576,2,262144,1048576,3,146.656,7.150
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,1048576,4,262144,1048576,1,171.692,6.107
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,1048576,4,262144,1048576,2,200.543,5.229
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,1048576,4,262144,1048576,3,193.500,5.419
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,1048576,8,262144,1048576,1,151.534,6.920
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,1048576,8,262144,1048576,2,184.504,5.683
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,1048576,8,262144,1048576,3,186.414,5.625
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,1048576,16,262144,1048576,1,180.402,5.812
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,1048576,16,262144,1048576,2,176.066,5.956
+lockfree_chaining,lock-free,Fixed-size lock-free chaining,mixed,1048576,16,262144,1048576,3,176.042,5.956
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,65536,1,16384,16384,1,4.771,3.434
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,65536,1,16384,16384,2,4.678,3.502
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,65536,1,16384,16384,3,4.768,3.436
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,65536,2,16384,16384,1,3.889,4.213
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,65536,2,16384,16384,2,4.128,3.969
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,65536,2,16384,16384,3,3.363,4.871
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,65536,4,16384,16384,1,4.609,3.555
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,65536,4,16384,16384,2,3.396,4.824
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,65536,4,16384,16384,3,4.358,3.760
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,65536,8,16384,16384,1,4.061,4.034
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,65536,8,16384,16384,2,4.320,3.793
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,65536,8,16384,16384,3,4.135,3.962
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,65536,16,16384,16384,1,4.361,3.757
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,65536,16,16384,16384,2,3.993,4.103
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,65536,16,16384,16384,3,4.197,3.904
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,65536,1,16384,65536,1,2.225,29.449
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,65536,1,16384,65536,2,2.373,27.617
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,65536,1,16384,65536,3,2.607,25.137
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,65536,2,16384,65536,1,1.708,38.361
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,65536,2,16384,65536,2,1.717,38.167
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,65536,2,16384,65536,3,1.595,41.080
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,65536,4,16384,65536,1,1.370,47.847
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,65536,4,16384,65536,2,1.927,34.012
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,65536,4,16384,65536,3,1.525,42.969
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,65536,8,16384,65536,1,1.502,43.637
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,65536,8,16384,65536,2,1.317,49.770
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,65536,8,16384,65536,3,1.403,46.720
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,65536,16,16384,65536,1,1.981,33.089
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,65536,16,16384,65536,2,2.041,32.105
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,65536,16,16384,65536,3,2.095,31.281
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,65536,1,16384,65536,1,9.399,6.973
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,65536,1,16384,65536,2,9.341,7.016
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,65536,1,16384,65536,3,9.235,7.097
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,65536,2,16384,65536,1,12.749,5.140
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,65536,2,16384,65536,2,10.698,6.126
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,65536,2,16384,65536,3,12.217,5.364
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,65536,4,16384,65536,1,11.782,5.562
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,65536,4,16384,65536,2,10.488,6.249
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,65536,4,16384,65536,3,12.789,5.124
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,65536,8,16384,65536,1,10.358,6.327
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,65536,8,16384,65536,2,11.917,5.499
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,65536,8,16384,65536,3,10.323,6.348
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,65536,16,16384,65536,1,12.173,5.384
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,65536,16,16384,65536,2,9.502,6.897
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,65536,16,16384,65536,3,9.725,6.739
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,262144,1,65536,65536,1,17.271,3.795
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,262144,1,65536,65536,2,17.205,3.809
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,262144,1,65536,65536,3,17.513,3.742
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,262144,2,65536,65536,1,13.081,5.010
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,262144,2,65536,65536,2,19.034,3.443
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,262144,2,65536,65536,3,14.153,4.630
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,262144,4,65536,65536,1,12.975,5.051
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,262144,4,65536,65536,2,12.465,5.258
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,262144,4,65536,65536,3,13.563,4.832
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,262144,8,65536,65536,1,14.159,4.628
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,262144,8,65536,65536,2,14.929,4.390
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,262144,8,65536,65536,3,14.892,4.401
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,262144,16,65536,65536,1,15.228,4.304
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,262144,16,65536,65536,2,14.259,4.596
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,262144,16,65536,65536,3,14.937,4.388
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,262144,1,65536,262144,1,8.782,29.849
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,262144,1,65536,262144,2,8.598,30.488
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,262144,1,65536,262144,3,8.916,29.402
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,262144,2,65536,262144,1,6.171,42.482
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,262144,2,65536,262144,2,5.415,48.415
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,262144,2,65536,262144,3,6.464,40.551
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,262144,4,65536,262144,1,3.765,69.633
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,262144,4,65536,262144,2,3.645,71.914
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,262144,4,65536,262144,3,4.166,62.917
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,262144,8,65536,262144,1,2.786,94.080
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,262144,8,65536,262144,2,2.922,89.716
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,262144,8,65536,262144,3,3.063,85.592
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,262144,16,65536,262144,1,2.590,101.226
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,262144,16,65536,262144,2,3.025,86.666
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,262144,16,65536,262144,3,2.835,92.476
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,262144,1,65536,262144,1,36.406,7.200
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,262144,1,65536,262144,2,42.645,6.147
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,262144,1,65536,262144,3,40.934,6.404
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,262144,2,65536,262144,1,47.330,5.539
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,262144,2,65536,262144,2,41.296,6.348
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,262144,2,65536,262144,3,43.760,5.990
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,262144,4,65536,262144,1,41.787,6.273
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,262144,4,65536,262144,2,42.441,6.177
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,262144,4,65536,262144,3,49.550,5.291
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,262144,8,65536,262144,1,42.975,6.100
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,262144,8,65536,262144,2,46.789,5.603
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,262144,8,65536,262144,3,39.504,6.636
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,262144,16,65536,262144,1,58.646,4.470
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,262144,16,65536,262144,2,41.589,6.303
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,262144,16,65536,262144,3,46.276,5.665
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,1048576,1,262144,262144,1,66.606,3.936
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,1048576,1,262144,262144,2,68.066,3.851
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,1048576,1,262144,262144,3,68.594,3.822
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,1048576,2,262144,262144,1,55.859,4.693
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,1048576,2,262144,262144,2,55.131,4.755
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,1048576,2,262144,262144,3,53.273,4.921
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,1048576,4,262144,262144,1,61.625,4.254
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,1048576,4,262144,262144,2,51.990,5.042
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,1048576,4,262144,262144,3,60.300,4.347
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,1048576,8,262144,262144,1,51.973,5.044
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,1048576,8,262144,262144,2,55.895,4.690
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,1048576,8,262144,262144,3,61.138,4.288
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,1048576,16,262144,262144,1,55.473,4.726
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,1048576,16,262144,262144,2,53.996,4.855
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,put,1048576,16,262144,262144,3,57.007,4.598
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,1048576,1,262144,1048576,1,37.057,28.296
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,1048576,1,262144,1048576,2,39.148,26.785
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,1048576,1,262144,1048576,3,44.002,23.830
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,1048576,2,262144,1048576,1,24.802,42.278
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,1048576,2,262144,1048576,2,18.190,57.644
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,1048576,2,262144,1048576,3,168.576,6.220
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,1048576,4,262144,1048576,1,12.160,86.229
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,1048576,4,262144,1048576,2,10.948,95.781
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,1048576,4,262144,1048576,3,83.559,12.549
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,1048576,8,262144,1048576,1,43.375,24.175
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,1048576,8,262144,1048576,2,44.487,23.570
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,1048576,8,262144,1048576,3,47.625,22.017
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,1048576,16,262144,1048576,1,32.682,32.084
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,1048576,16,262144,1048576,2,25.883,40.512
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,get,1048576,16,262144,1048576,3,32.292,32.471
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,1048576,1,262144,1048576,1,872.503,1.202
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,1048576,1,262144,1048576,2,213.407,4.914
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,1048576,1,262144,1048576,3,147.409,7.113
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,1048576,2,262144,1048576,1,136.760,7.667
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,1048576,2,262144,1048576,2,413.351,2.537
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,1048576,2,262144,1048576,3,169.206,6.197
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,1048576,4,262144,1048576,1,174.475,6.010
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,1048576,4,262144,1048576,2,205.656,5.099
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,1048576,4,262144,1048576,3,177.326,5.913
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,1048576,8,262144,1048576,1,157.609,6.653
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,1048576,8,262144,1048576,2,179.891,5.829
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,1048576,8,262144,1048576,3,194.013,5.405
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,1048576,16,262144,1048576,1,145.595,7.202
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,1048576,16,262144,1048576,2,154.974,6.766
+lockfree_dynamic_resize,codex/lock-free-resize-experiment,Experimental dynamic-resizing lock-free chaining,mixed,1048576,16,262144,1048576,3,151.415,6.925
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,65536,1,16384,16384,1,3.727,4.396
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,65536,1,16384,16384,2,3.824,4.284
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,65536,1,16384,16384,3,3.719,4.406
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,65536,2,16384,16384,1,8.413,1.947
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,65536,2,16384,16384,2,10.407,1.574
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,65536,2,16384,16384,3,10.270,1.595
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,65536,4,16384,16384,1,8.280,1.979
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,65536,4,16384,16384,2,8.624,1.900
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,65536,4,16384,16384,3,8.895,1.842
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,65536,8,16384,16384,1,9.041,1.812
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,65536,8,16384,16384,2,11.510,1.423
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,65536,8,16384,16384,3,8.307,1.972
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,65536,16,16384,16384,1,9.589,1.709
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,65536,16,16384,16384,2,10.168,1.611
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,65536,16,16384,16384,3,9.240,1.773
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,65536,1,16384,65536,1,7.854,8.344
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,65536,1,16384,65536,2,7.857,8.341
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,65536,1,16384,65536,3,7.699,8.512
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,65536,2,16384,65536,1,29.454,2.225
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,65536,2,16384,65536,2,31.804,2.061
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,65536,2,16384,65536,3,19.729,3.322
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,65536,4,16384,65536,1,29.194,2.245
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,65536,4,16384,65536,2,29.141,2.249
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,65536,4,16384,65536,3,26.629,2.461
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,65536,8,16384,65536,1,27.744,2.362
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,65536,8,16384,65536,2,34.652,1.891
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,65536,8,16384,65536,3,49.206,1.332
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,65536,16,16384,65536,1,47.924,1.367
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,65536,16,16384,65536,2,35.125,1.866
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,65536,16,16384,65536,3,46.081,1.422
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,65536,1,16384,65536,1,23.025,2.846
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,65536,1,16384,65536,2,22.900,2.862
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,65536,1,16384,65536,3,32.899,1.992
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,65536,2,16384,65536,1,57.761,1.135
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,65536,2,16384,65536,2,44.205,1.483
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,65536,2,16384,65536,3,44.787,1.463
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,65536,4,16384,65536,1,89.439,0.733
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,65536,4,16384,65536,2,71.079,0.922
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,65536,4,16384,65536,3,61.617,1.064
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,65536,8,16384,65536,1,99.265,0.660
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,65536,8,16384,65536,2,138.226,0.474
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,65536,8,16384,65536,3,57.144,1.147
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,65536,16,16384,65536,1,181.399,0.361
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,65536,16,16384,65536,2,96.780,0.677
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,65536,16,16384,65536,3,71.741,0.914
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,262144,1,65536,65536,1,14.241,4.602
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,262144,1,65536,65536,2,57.291,1.144
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,262144,1,65536,65536,3,13.065,5.016
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,262144,2,65536,65536,1,35.596,1.841
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,262144,2,65536,65536,2,47.812,1.371
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,262144,2,65536,65536,3,48.131,1.362
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,262144,4,65536,65536,1,48.850,1.342
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,262144,4,65536,65536,2,40.608,1.614
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,262144,4,65536,65536,3,169.487,0.387
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,262144,8,65536,65536,1,116.844,0.561
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,262144,8,65536,65536,2,111.270,0.589
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,262144,8,65536,65536,3,45.716,1.434
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,262144,16,65536,65536,1,48.902,1.340
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,262144,16,65536,65536,2,113.302,0.578
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,262144,16,65536,65536,3,45.478,1.441
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,262144,1,65536,262144,1,30.364,8.633
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,262144,1,65536,262144,2,71.551,3.664
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,262144,1,65536,262144,3,67.049,3.910
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,262144,2,65536,262144,1,64.499,4.064
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,262144,2,65536,262144,2,58.541,4.478
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,262144,2,65536,262144,3,271.450,0.966
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,262144,4,65536,262144,1,112.539,2.329
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,262144,4,65536,262144,2,113.456,2.311
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,262144,4,65536,262144,3,129.689,2.021
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,262144,8,65536,262144,1,187.913,1.395
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,262144,8,65536,262144,2,138.205,1.897
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,262144,8,65536,262144,3,179.386,1.461
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,262144,16,65536,262144,1,168.921,1.552
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,262144,16,65536,262144,2,189.073,1.386
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,262144,16,65536,262144,3,136.115,1.926
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,262144,1,65536,262144,1,88.421,2.965
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,262144,1,65536,262144,2,205.599,1.275
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,262144,1,65536,262144,3,86.606,3.027
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,262144,2,65536,262144,1,135.045,1.941
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,262144,2,65536,262144,2,144.475,1.814
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,262144,2,65536,262144,3,165.754,1.582
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,262144,4,65536,262144,1,209.335,1.252
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,262144,4,65536,262144,2,146.150,1.794
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,262144,4,65536,262144,3,158.627,1.653
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,262144,8,65536,262144,1,205.583,1.275
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,262144,8,65536,262144,2,234.035,1.120
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,262144,8,65536,262144,3,226.991,1.155
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,262144,16,65536,262144,1,201.264,1.302
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,262144,16,65536,262144,2,180.493,1.452
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,262144,16,65536,262144,3,233.338,1.123
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,1048576,1,262144,262144,1,53.229,4.925
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,1048576,1,262144,262144,2,52.255,5.017
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,1048576,1,262144,262144,3,51.923,5.049
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,1048576,2,262144,262144,1,139.420,1.880
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,1048576,2,262144,262144,2,148.478,1.766
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,1048576,2,262144,262144,3,164.399,1.595
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,1048576,4,262144,262144,1,136.333,1.923
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,1048576,4,262144,262144,2,155.534,1.685
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,1048576,4,262144,262144,3,131.488,1.994
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,1048576,8,262144,262144,1,160.414,1.634
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,1048576,8,262144,262144,2,145.084,1.807
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,1048576,8,262144,262144,3,158.167,1.657
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,1048576,16,262144,262144,1,134.095,1.955
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,1048576,16,262144,262144,2,165.502,1.584
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,put,1048576,16,262144,262144,3,166.739,1.572
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,1048576,1,262144,1048576,1,137.904,7.604
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,1048576,1,262144,1048576,2,129.223,8.114
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,1048576,1,262144,1048576,3,130.080,8.061
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,1048576,2,262144,1048576,1,287.140,3.652
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,1048576,2,262144,1048576,2,399.564,2.624
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,1048576,2,262144,1048576,3,481.078,2.180
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,1048576,4,262144,1048576,1,364.755,2.875
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,1048576,4,262144,1048576,2,276.100,3.798
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,1048576,4,262144,1048576,3,387.206,2.708
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,1048576,8,262144,1048576,1,426.862,2.456
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,1048576,8,262144,1048576,2,821.728,1.276
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,1048576,8,262144,1048576,3,428.024,2.450
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,1048576,16,262144,1048576,1,503.463,2.083
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,1048576,16,262144,1048576,2,390.375,2.686
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,get,1048576,16,262144,1048576,3,485.266,2.161
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,1048576,1,262144,1048576,1,396.874,2.642
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,1048576,1,262144,1048576,2,423.112,2.478
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,1048576,1,262144,1048576,3,417.223,2.513
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,1048576,2,262144,1048576,1,567.463,1.848
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,1048576,2,262144,1048576,2,557.605,1.880
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,1048576,2,262144,1048576,3,585.518,1.791
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,1048576,4,262144,1048576,1,785.679,1.335
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,1048576,4,262144,1048576,2,621.197,1.688
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,1048576,4,262144,1048576,3,1149.150,0.912
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,1048576,8,262144,1048576,1,1877.290,0.559
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,1048576,8,262144,1048576,2,936.291,1.120
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,1048576,8,262144,1048576,3,2002.550,0.524
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,1048576,16,262144,1048576,1,925.516,1.133
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,1048576,16,262144,1048576,2,950.642,1.103
+lockfree_open_addressing,codex/open-addressing-experiment,Experimental open-addressing lock-free map,mixed,1048576,16,262144,1048576,3,860.243,1.219

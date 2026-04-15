@@ -613,12 +613,33 @@ void test_open_addressing_parallel(TestState& state) {
         }
         state.check(all_removed, "all 1024 keys removed");
         state.check(map.size() == 0, "size returns to zero after removes");
+        const auto stats = map.get_stats();
+        state.check(stats.deleted_slots > 0, "deletes leave tombstones for now");
     }
 
     run_disjoint_insert_remove_round<LockFreeOpenAddressingHashMap<int, int>>(
         state, "Disjoint insert/remove invariants", 16384, 8, 256);
     run_same_key_race_rounds<LockFreeOpenAddressingHashMap<int, int>>(
         state, "Repeated same-key race", 1024, 6, 8, 1000);
+
+    {
+        std::cout << "\n--- Stats Snapshot ---\n";
+        LockFreeOpenAddressingHashMap<int, int> map(128);
+        for (int i = 0; i < 32; ++i) {
+            map.put(i, i);
+        }
+        for (int i = 0; i < 16; ++i) {
+            map.remove(i);
+        }
+        for (int i = 0; i < 32; ++i) {
+            (void)map.get(i);
+        }
+        const auto stats = map.get_stats();
+        state.check(stats.occupied_slots == 16, "stats report occupied slot count");
+        state.check(stats.deleted_slots >= 16, "stats report deleted slot count");
+        state.check(stats.put_calls >= 32 && stats.get_calls >= 32 && stats.remove_calls >= 16,
+                    "stats count operations");
+    }
 }
 
 void print_usage(const char* program) {

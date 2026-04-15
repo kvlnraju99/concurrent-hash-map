@@ -17,11 +17,12 @@ struct Config {
     int max_threads = static_cast<int>(std::thread::hardware_concurrency());
     int total_ops = 800000;
     size_t buckets = 524288;
+    bool print_open_stats = false;
 };
 
 void print_usage(const char* program) {
     std::cout << "Usage: " << program
-              << " [--threads N] [--ops N] [--buckets N]\n";
+              << " [--threads N] [--ops N] [--buckets N] [--print-open-stats]\n";
 }
 
 Config parse_args(int argc, char* argv[]) {
@@ -38,6 +39,8 @@ Config parse_args(int argc, char* argv[]) {
             config.total_ops = std::max(1, std::atoi(argv[++i]));
         } else if (arg == "--buckets" && i + 1 < argc) {
             config.buckets = static_cast<size_t>(std::strtoull(argv[++i], nullptr, 10));
+        } else if (arg == "--print-open-stats") {
+            config.print_open_stats = true;
         } else {
             print_usage(argv[0]);
             std::exit(1);
@@ -280,6 +283,56 @@ double bench_mixed_open(int num_threads, size_t buckets, int total_ops) {
     return std::chrono::duration<double, std::milli>(end - start).count();
 }
 
+void print_open_mixed_stats(const Config& config) {
+    LockFreeOpenAddressingHashMap<int, int> map(config.buckets);
+    const int preload_keys = std::min(50000, static_cast<int>(config.buckets / 2));
+    for (int i = 0; i < preload_keys; ++i) {
+        (void)map.put(i, i);
+    }
+
+    const int ops_per_thread = config.total_ops / config.max_threads;
+    std::vector<std::thread> threads;
+    threads.reserve(config.max_threads);
+    for (int t = 0; t < config.max_threads; ++t) {
+        threads.emplace_back([&map, t, ops_per_thread, preload_keys]() {
+            for (int i = 0; i < ops_per_thread; ++i) {
+                const int key = (t * ops_per_thread + i) % preload_keys;
+                const int op = (t + i) % 3;
+                if (op == 0) {
+                    (void)map.put(key, i);
+                } else if (op == 1) {
+                    map.get(key);
+                } else {
+                    map.remove(key);
+                }
+            }
+        });
+    }
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    const auto stats = map.get_stats();
+    const auto avg_put_probe =
+        stats.put_calls == 0 ? 0.0 : static_cast<double>(stats.total_put_probes) / stats.put_calls;
+    const auto avg_get_probe =
+        stats.get_calls == 0 ? 0.0 : static_cast<double>(stats.total_get_probes) / stats.get_calls;
+    const auto avg_remove_probe =
+        stats.remove_calls == 0 ? 0.0 : static_cast<double>(stats.total_remove_probes) / stats.remove_calls;
+
+    std::cout << "\n--- Open-LF Mixed Stats ---\n";
+    std::cout << "occupied=" << stats.occupied_slots
+              << ", deleted=" << stats.deleted_slots
+              << ", empty=" << stats.empty_slots
+              << ", failed_puts=" << stats.failed_puts << "\n";
+    std::cout << "avg_put_probe=" << avg_put_probe
+              << ", avg_get_probe=" << avg_get_probe
+              << ", avg_remove_probe=" << avg_remove_probe << "\n";
+    std::cout << "max_put_probe=" << stats.max_put_probe
+              << ", max_get_probe=" << stats.max_get_probe
+              << ", max_remove_probe=" << stats.max_remove_probe << "\n";
+}
+
 using BenchFn = double (*)(int, size_t, int);
 
 void compare(const std::string& label,
@@ -336,6 +389,10 @@ int main(int argc, char* argv[]) {
     compare("PUT", bench_put_locked, bench_put_lockfree, bench_put_open, config);
     compare("GET", bench_get_locked, bench_get_lockfree, bench_get_open, config);
     compare("MIXED", bench_mixed_locked, bench_mixed_lockfree, bench_mixed_open, config);
+
+    if (config.print_open_stats) {
+        print_open_mixed_stats(config);
+    }
 
     std::cout << "\n========================================================\n";
     std::cout << " Done.\n";

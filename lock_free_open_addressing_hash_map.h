@@ -4,7 +4,9 @@
 #include <atomic>
 #include <cstdint>
 #include <functional>
+#include <mutex>
 #include <optional>
+#include <shared_mutex>
 #include <type_traits>
 #include <vector>
 
@@ -63,6 +65,7 @@ private:
     std::vector<Slot> slots;
     size_t capacity;
     std::atomic<size_t> element_count;
+    std::atomic<size_t> deleted_count;
     mutable std::atomic<uint64_t> put_calls;
     mutable std::atomic<uint64_t> get_calls;
     mutable std::atomic<uint64_t> remove_calls;
@@ -73,6 +76,7 @@ private:
     mutable std::atomic<uint64_t> max_put_probe;
     mutable std::atomic<uint64_t> max_get_probe;
     mutable std::atomic<uint64_t> max_remove_probe;
+    mutable std::shared_mutex table_mutex;
 
     size_t probe_index(const K& key, size_t step) const {
         return (std::hash<K>{}(key) + step) % capacity;
@@ -112,11 +116,65 @@ private:
         return true;
     }
 
+    void insert_into_table(std::vector<Slot>& table, const K& key, const V& value) {
+        const size_t table_capacity = table.size();
+        for (size_t step = 0; step < table_capacity; ++step) {
+            Slot& slot = table[(std::hash<K>{}(key) + step) % table_capacity];
+            const uint8_t state = slot.state.load(std::memory_order_relaxed);
+            if (state == OCCUPIED) {
+                if (slot.key.load(std::memory_order_relaxed) == key) {
+                    slot.value.store(value, std::memory_order_relaxed);
+                    return;
+                }
+                continue;
+            }
+
+            slot.key.store(key, std::memory_order_relaxed);
+            slot.value.store(value, std::memory_order_relaxed);
+            slot.state.store(OCCUPIED, std::memory_order_relaxed);
+            return;
+        }
+    }
+
+    bool should_rebuild() const {
+        const size_t deleted = deleted_count.load(std::memory_order_relaxed);
+        const size_t live = element_count.load(std::memory_order_relaxed);
+        return deleted >= capacity / 16 && deleted >= live / 2;
+    }
+
+    bool rebuild_if_needed() {
+        if (!should_rebuild()) {
+            return false;
+        }
+
+        std::unique_lock<std::shared_mutex> lock(table_mutex);
+        if (!should_rebuild()) {
+            return false;
+        }
+
+        std::vector<Slot> rebuilt(capacity);
+        size_t live_entries = 0;
+        for (const Slot& slot : slots) {
+            if (slot.state.load(std::memory_order_acquire) == OCCUPIED) {
+                insert_into_table(rebuilt,
+                                  slot.key.load(std::memory_order_relaxed),
+                                  slot.value.load(std::memory_order_relaxed));
+                ++live_entries;
+            }
+        }
+
+        slots.swap(rebuilt);
+        element_count.store(live_entries, std::memory_order_relaxed);
+        deleted_count.store(0, std::memory_order_relaxed);
+        return true;
+    }
+
 public:
     explicit LockFreeOpenAddressingHashMap(size_t num_slots = 1024)
         : slots(num_slots == 0 ? 1 : num_slots),
           capacity(num_slots == 0 ? 1 : num_slots),
           element_count(0),
+          deleted_count(0),
           put_calls(0),
           get_calls(0),
           remove_calls(0),
@@ -130,6 +188,8 @@ public:
     }
 
     bool put(const K& key, const V& value) {
+        rebuild_if_needed();
+        std::shared_lock<std::shared_mutex> lock(table_mutex);
         size_t first_reusable = capacity;
         uint8_t first_reusable_state = EMPTY;
         uint64_t probes = 0;
@@ -160,6 +220,9 @@ public:
                 Slot& target = slots[first_reusable];
                 while (true) {
                     if (try_claim_slot(target, first_reusable_state, key, value)) {
+                        if (first_reusable_state == DELETED) {
+                            deleted_count.fetch_sub(1, std::memory_order_relaxed);
+                        }
                         record_probe(put_calls, total_put_probes, max_put_probe, probes);
                         return true;
                     }
@@ -185,6 +248,9 @@ public:
             Slot& target = slots[first_reusable];
             while (true) {
                 if (try_claim_slot(target, first_reusable_state, key, value)) {
+                    if (first_reusable_state == DELETED) {
+                        deleted_count.fetch_sub(1, std::memory_order_relaxed);
+                    }
                     record_probe(put_calls, total_put_probes, max_put_probe, probes);
                     return true;
                 }
@@ -206,10 +272,14 @@ public:
 
         record_probe(put_calls, total_put_probes, max_put_probe, probes);
         failed_puts.fetch_add(1, std::memory_order_relaxed);
+        lock.unlock();
+        rebuild_if_needed();
         return false;
     }
 
     std::optional<V> get(const K& key) const {
+        const_cast<LockFreeOpenAddressingHashMap*>(this)->rebuild_if_needed();
+        std::shared_lock<std::shared_mutex> lock(table_mutex);
         for (size_t step = 0; step < capacity; ++step) {
             const Slot& slot = slots[probe_index(key, step)];
             const uint8_t state = slot.state.load(std::memory_order_acquire);
@@ -233,6 +303,8 @@ public:
     }
 
     bool remove(const K& key) {
+        rebuild_if_needed();
+        std::shared_lock<std::shared_mutex> lock(table_mutex);
         for (size_t step = 0; step < capacity; ++step) {
             Slot& slot = slots[probe_index(key, step)];
             uint8_t state = slot.state.load(std::memory_order_acquire);
@@ -254,7 +326,10 @@ public:
                     std::memory_order_acq_rel,
                     std::memory_order_acquire)) {
                 element_count.fetch_sub(1, std::memory_order_relaxed);
+                deleted_count.fetch_add(1, std::memory_order_relaxed);
                 record_probe(remove_calls, total_remove_probes, max_remove_probe, step + 1);
+                lock.unlock();
+                rebuild_if_needed();
                 return true;
             }
         }
@@ -284,6 +359,7 @@ public:
         stats.max_get_probe = max_get_probe.load(std::memory_order_relaxed);
         stats.max_remove_probe = max_remove_probe.load(std::memory_order_relaxed);
 
+        std::shared_lock<std::shared_mutex> lock(table_mutex);
         for (const Slot& slot : slots) {
             const uint8_t state = slot.state.load(std::memory_order_acquire);
             if (state == OCCUPIED) {

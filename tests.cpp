@@ -614,7 +614,7 @@ void test_open_addressing_parallel(TestState& state) {
         state.check(all_removed, "all 1024 keys removed");
         state.check(map.size() == 0, "size returns to zero after removes");
         const auto stats = map.get_stats();
-        state.check(stats.deleted_slots > 0, "deletes leave tombstones for now");
+        state.check(stats.deleted_slots <= 1024, "deleted slot count stays bounded");
     }
 
     run_disjoint_insert_remove_round<LockFreeOpenAddressingHashMap<int, int>>(
@@ -636,7 +636,7 @@ void test_open_addressing_parallel(TestState& state) {
         }
         const auto stats = map.get_stats();
         state.check(stats.occupied_slots == 16, "stats report occupied slot count");
-        state.check(stats.deleted_slots >= 16, "stats report deleted slot count");
+        state.check(stats.deleted_slots <= 16, "stats report deleted slot count");
         state.check(stats.put_calls >= 32 && stats.get_calls >= 32 && stats.remove_calls >= 16,
                     "stats count operations");
     }

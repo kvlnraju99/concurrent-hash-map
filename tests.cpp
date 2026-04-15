@@ -508,6 +508,64 @@ void test_lockfree_parallel(TestState& state) {
     }
 
     {
+        std::cout << "\n--- Same-key Trace Repro ---\n";
+        bool trace_ok = true;
+        int failure_round = -1;
+        size_t failure_size = 0;
+        int failure_value = -1;
+        uint64_t failure_live_nodes = 0;
+
+        for (int round = 0; round < 32; ++round) {
+            LockFreeHashMap<int, int> map(8, false, 0.75);
+            map.put(0, -1);
+
+            std::thread t1([&map]() {
+                map.put(0, 100);
+                std::this_thread::yield();
+                map.remove(0);
+                std::this_thread::yield();
+                map.put(0, 101);
+                std::this_thread::yield();
+                map.get(0);
+            });
+
+            std::thread t2([&map]() {
+                std::this_thread::yield();
+                map.put(0, 200);
+                std::this_thread::yield();
+                map.get(0);
+                std::this_thread::yield();
+                map.put(0, 201);
+            });
+
+            t1.join();
+            t2.join();
+
+            const auto value = map.get(0);
+            const size_t size = map.size();
+            const bool valid_size = (size <= 1);
+            const bool valid_value =
+                !value.has_value() || value.value() == 101 || value.value() == 200 || value.value() == 201;
+            if (!valid_size || !valid_value) {
+                trace_ok = false;
+                failure_round = round;
+                failure_size = size;
+                failure_value = value.has_value() ? value.value() : -1;
+                failure_live_nodes = map.debug_live_count_for_key(0);
+                std::cout << "    trace failure round=" << failure_round
+                          << " size=" << failure_size
+                          << " value=" << (value.has_value() ? std::to_string(failure_value) : std::string("missing"))
+                          << " live_nodes_for_key0=" << failure_live_nodes
+                          << "\n";
+                map.debug_print_key_locations(0);
+                break;
+            }
+        }
+
+        state.check(trace_ok, "same-key trace repro keeps one logical key");
+    }
+
+    {
         std::cout << "\n--- Parallel Gets ---\n";
         LockFreeHashMap<int, int> map(16);
         for (int i = 0; i < 100; ++i) {

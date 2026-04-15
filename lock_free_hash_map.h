@@ -10,6 +10,7 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -261,6 +262,71 @@ private:
 #endif
     }
 
+    static bool debug_trace_key(const K& key) {
+#ifdef LF_RESIZE_DEBUG
+        if constexpr (std::is_integral_v<K>) {
+            return key >= 0 && key <= 3;
+        }
+#endif
+        (void)key;
+        return false;
+    }
+
+    void debug_trace_count(const char* event, const K& key, size_t before, size_t after) const {
+#ifdef LF_RESIZE_DEBUG
+        if (!debug_trace_key(key)) {
+            return;
+        }
+        Table* current = current_table.load(std::memory_order_acquire);
+        std::fprintf(stderr,
+                     "[lf-count] %s key=%d before=%zu after=%zu current=%p buckets=%zu next=%p\n",
+                     event,
+                     static_cast<int>(key),
+                     before,
+                     after,
+                     static_cast<void*>(current),
+                     current->bucket_count,
+                     static_cast<void*>(current->next_table.load(std::memory_order_acquire)));
+#else
+        (void)event;
+        (void)key;
+        (void)before;
+        (void)after;
+#endif
+    }
+
+    void debug_trace_op(const char* event,
+                        const K& key,
+                        Table* table,
+                        size_t idx,
+                        uint64_t live_matches,
+                        const char* note) const {
+#ifdef LF_RESIZE_DEBUG
+        if (!debug_trace_key(key)) {
+            return;
+        }
+        std::fprintf(stderr,
+                     "[lf-op] %s key=%d table=%p buckets=%zu idx=%zu live=%llu state=%u next=%p note=%s size=%zu\n",
+                     event,
+                     static_cast<int>(key),
+                     static_cast<void*>(table),
+                     table->bucket_count,
+                     idx,
+                     static_cast<unsigned long long>(live_matches),
+                     static_cast<unsigned>(bucket_state(table, idx)),
+                     static_cast<void*>(table->next_table.load(std::memory_order_acquire)),
+                     note,
+                     element_count.load(std::memory_order_relaxed));
+#else
+        (void)event;
+        (void)key;
+        (void)table;
+        (void)idx;
+        (void)live_matches;
+        (void)note;
+#endif
+    }
+
     void promote_table_if_ready(Table* table) {
         Table* next = table->next_table.load(std::memory_order_acquire);
         if (next == nullptr) {
@@ -285,6 +351,7 @@ private:
         BucketWriteGuard guard = acquire_bucket_write(table, idx);
         if (!guard) {
             debug_log("retry-closed-bucket", table, table->bucket_count, idx, 0);
+            debug_trace_op("put-retry-closed", key, table, idx, 0, "bucket closed");
             return PutResult::retry;
         }
 
@@ -305,6 +372,7 @@ private:
             ++chain_length;
             if (curr->key == key) {
                 curr->value = value;
+                debug_trace_op("put-update", key, table, idx, 1, "existing key");
                 if (sample != nullptr) {
                     sample->updated_existing = 1;
                     sample->traversal_nodes = chain_length;
@@ -336,6 +404,7 @@ private:
         if (sample != nullptr) {
             sample->successful_inserts = 1;
         }
+        debug_trace_op("put-insert", key, table, idx, 1, "new node");
         return PutResult::inserted;
     }
 
@@ -570,7 +639,8 @@ public:
 
             if (result == PutResult::inserted) {
                 const auto bookkeeping_start = profiling_enabled ? ProfileClock::now() : ProfileClock::time_point{};
-                element_count.fetch_add(1, std::memory_order_relaxed);
+                const size_t before = element_count.fetch_add(1, std::memory_order_relaxed);
+                debug_trace_count("size-inc", key, before, before + 1);
                 if (profiling_enabled) {
                     sample.bookkeeping_ns = elapsed_ns(bookkeeping_start, ProfileClock::now());
                 }
@@ -594,7 +664,10 @@ public:
         Table* table = ensure_current_target(key);
         const bool removed = remove_from_table(table, key);
         if (removed) {
+            const size_t before = element_count.load(std::memory_order_relaxed);
             decrement_size_if_possible();
+            debug_trace_count("size-dec", key, before,
+                              element_count.load(std::memory_order_relaxed));
         }
         return removed;
     }

@@ -1,4 +1,5 @@
 #include <atomic>
+#include <optional>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -23,6 +24,113 @@ struct TestState {
         }
     }
 };
+
+template <typename Map>
+void run_disjoint_insert_remove_round(TestState& state,
+                                      const std::string& label,
+                                      size_t buckets,
+                                      int num_threads,
+                                      int keys_per_thread) {
+    std::cout << "\n--- " << label << " ---\n";
+    Map map(buckets);
+    std::vector<std::thread> threads;
+
+    for (int t = 0; t < num_threads; ++t) {
+        threads.emplace_back([&map, t, keys_per_thread]() {
+            for (int i = 0; i < keys_per_thread; ++i) {
+                const int key = t * keys_per_thread + i;
+                map.put(key, key);
+            }
+        });
+    }
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    const size_t expected = static_cast<size_t>(num_threads) * keys_per_thread;
+    bool all_present = true;
+    for (size_t key = 0; key < expected; ++key) {
+        const auto value = map.get(static_cast<int>(key));
+        if (!value.has_value() || value.value() != static_cast<int>(key)) {
+            all_present = false;
+            break;
+        }
+    }
+
+    state.check(map.size() == expected, "size matches inserted unique keys");
+    state.check(all_present, "all inserted keys are readable");
+
+    threads.clear();
+    for (int t = 0; t < num_threads; ++t) {
+        threads.emplace_back([&map, t, keys_per_thread]() {
+            for (int i = 0; i < keys_per_thread; ++i) {
+                const int key = t * keys_per_thread + i;
+                map.remove(key);
+            }
+        });
+    }
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    bool all_removed = true;
+    for (size_t key = 0; key < expected; ++key) {
+        if (map.get(static_cast<int>(key)).has_value()) {
+            all_removed = false;
+            break;
+        }
+    }
+    state.check(map.size() == 0, "size returns to zero after removals");
+    state.check(all_removed, "all inserted keys are removed");
+}
+
+template <typename Map>
+void run_same_key_race_rounds(TestState& state,
+                              const std::string& label,
+                              size_t buckets,
+                              int rounds,
+                              int num_threads,
+                              int ops_per_thread) {
+    std::cout << "\n--- " << label << " ---\n";
+    bool all_rounds_ok = true;
+
+    for (int round = 0; round < rounds; ++round) {
+        Map map(buckets);
+        map.put(0, -1);
+
+        std::vector<std::thread> threads;
+        for (int t = 0; t < num_threads; ++t) {
+            threads.emplace_back([&map, t, ops_per_thread]() {
+                for (int i = 0; i < ops_per_thread; ++i) {
+                    const int op = (t + i) % 3;
+                    if (op == 0) {
+                        map.put(0, t * ops_per_thread + i);
+                    } else if (op == 1) {
+                        map.get(0);
+                    } else {
+                        map.remove(0);
+                    }
+                }
+            });
+        }
+        for (auto& thread : threads) {
+            thread.join();
+        }
+
+        const auto value = map.get(0);
+        const size_t size = map.size();
+        const bool valid_size = (size <= 1);
+        const bool valid_value =
+            !value.has_value() || (value.value() >= 0 && value.value() < num_threads * ops_per_thread);
+
+        if (!valid_size || !valid_value) {
+            all_rounds_ok = false;
+            break;
+        }
+    }
+
+    state.check(all_rounds_ok, "repeated same-key race keeps valid state");
+}
 
 void test_locked_single_thread(TestState& state) {
     std::cout << "\n[Locked] Single-thread\n";
@@ -58,6 +166,18 @@ void test_locked_single_thread(TestState& state) {
         state.check(!map.remove("apple"), "remove apple again -> false");
         state.check(map.get("banana") == 2, "banana still exists");
     }
+
+    {
+        std::cout << "\n--- Size Tracking ---\n";
+        ConcurrentHashMap<int, int> map(8);
+        state.check(map.size() == 0, "size starts at zero");
+        map.put(1, 10);
+        map.put(2, 20);
+        map.put(1, 99);
+        state.check(map.size() == 2, "size ignores updates to existing keys");
+        map.remove(2);
+        state.check(map.size() == 1, "size decreases after remove");
+    }
 }
 
 void test_locked_parallel(TestState& state) {
@@ -88,6 +208,7 @@ void test_locked_parallel(TestState& state) {
             }
         }
         state.check(all_ok, "all 8000 keys inserted");
+        state.check(map.size() == 8000, "size matches concurrent inserts");
     }
 
     {
@@ -110,6 +231,7 @@ void test_locked_parallel(TestState& state) {
         const auto value = map.get(0);
         state.check(value.has_value(), "key exists after overwrites");
         state.check(value.value() >= 0 && value.value() < 80000, "value stays in expected range");
+        state.check(map.size() == 1, "size stays at one for same-key overwrites");
     }
 
     {
@@ -135,6 +257,7 @@ void test_locked_parallel(TestState& state) {
             thread.join();
         }
         state.check(true, "400000 ops completed without crashing");
+        state.check(map.size() <= 1000, "stress size stays within key space");
     }
 
     {
@@ -171,7 +294,13 @@ void test_locked_parallel(TestState& state) {
         }
         state.check(all_ok, "concurrent resize preserves values");
         state.check(concurrent_map.get_bucket_count() > 4, "bucket count grew after concurrent inserts");
+        state.check(concurrent_map.size() == 8000, "resize path keeps exact size");
     }
+
+    run_disjoint_insert_remove_round<ConcurrentHashMap<int, int>>(
+        state, "Disjoint insert/remove invariants", 64, 8, 512);
+    run_same_key_race_rounds<ConcurrentHashMap<int, int>>(
+        state, "Repeated same-key race", 32, 8, 8, 2000);
 }
 
 void test_lockfree_single_thread(TestState& state) {
@@ -207,6 +336,23 @@ void test_lockfree_single_thread(TestState& state) {
         state.check(!map.remove("apple"), "remove apple again -> false");
         state.check(map.get("banana") == 2, "banana still exists");
     }
+
+    {
+        std::cout << "\n--- Size and Cleanup ---\n";
+        LockFreeHashMap<int, int> map(8);
+        state.check(map.size() == 0, "size starts at zero");
+        map.put(1, 10);
+        map.put(2, 20);
+        map.put(1, 99);
+        state.check(map.size() == 2, "size ignores updates to existing keys");
+        map.remove(1);
+        map.remove(2);
+        (void)map.get(1);
+        (void)map.get(2);
+        const auto stats = map.get_bucket_stats();
+        state.check(map.size() == 0, "size decreases after removes");
+        state.check(stats.deleted_nodes == 0, "deleted nodes are unlinked in single-thread cleanup");
+    }
 }
 
 void test_lockfree_parallel(TestState& state) {
@@ -237,6 +383,7 @@ void test_lockfree_parallel(TestState& state) {
             }
         }
         state.check(all_ok, "all 8000 keys inserted");
+        state.check(map.size() == 8000, "size matches concurrent inserts");
     }
 
     {
@@ -291,6 +438,7 @@ void test_lockfree_parallel(TestState& state) {
             }
         }
         state.check(all_removed, "all 800 keys removed");
+        state.check(map.size() == 0, "size returns to zero after parallel removes");
     }
 
     {
@@ -312,6 +460,7 @@ void test_lockfree_parallel(TestState& state) {
         const auto value = map.get(0);
         state.check(value.has_value(), "key exists after overwrites");
         state.check(value.value() >= 0 && value.value() < 80000, "value stays in expected range");
+        state.check(map.size() <= 1, "size stays bounded for same-key overwrites");
     }
 
     {
@@ -337,6 +486,31 @@ void test_lockfree_parallel(TestState& state) {
             thread.join();
         }
         state.check(true, "400000 ops completed without crashing");
+        state.check(map.size() <= 1000, "stress size stays within key space");
+    }
+
+    run_disjoint_insert_remove_round<LockFreeHashMap<int, int>>(
+        state, "Disjoint insert/remove invariants", 256, 8, 512);
+    run_same_key_race_rounds<LockFreeHashMap<int, int>>(
+        state, "Repeated same-key race", 64, 8, 8, 2000);
+
+    {
+        std::cout << "\n--- Tombstone Cleanup Under Reuse ---\n";
+        LockFreeHashMap<int, int> map(128);
+        for (int round = 0; round < 10; ++round) {
+            for (int key = 0; key < 256; ++key) {
+                map.put(key, round);
+            }
+            for (int key = 0; key < 256; ++key) {
+                map.remove(key);
+            }
+        }
+        for (int key = 0; key < 256; ++key) {
+            (void)map.get(key);
+        }
+        const auto stats = map.get_bucket_stats();
+        state.check(map.size() == 0, "reused map returns to zero size");
+        state.check(stats.deleted_nodes == 0, "deleted nodes do not accumulate after reuse");
     }
 }
 

@@ -125,6 +125,10 @@ void run_same_key_race_rounds(TestState& state,
 
         if (!valid_size || !valid_value) {
             all_rounds_ok = false;
+            std::cout << "    failure round=" << round
+                      << " size=" << size
+                      << " value=" << (value.has_value() ? std::to_string(value.value()) : std::string("missing"))
+                      << "\n";
             break;
         }
     }
@@ -390,14 +394,23 @@ void test_lockfree_parallel(TestState& state) {
         }
 
         bool all_ok = true;
+        int first_missing = -1;
         for (int i = 0; i < 8000; ++i) {
             const auto value = map.get(i);
             if (!value.has_value() || value.value() != i * 10) {
                 all_ok = false;
+                first_missing = i;
                 break;
             }
         }
         state.check(all_ok, "all 8000 keys inserted");
+        if (!all_ok) {
+            const auto value = map.get(first_missing);
+            std::cout << "    first missing or wrong key: " << first_missing
+                      << " observed=" << (value.has_value() ? std::to_string(value.value()) : std::string("missing"))
+                      << " buckets=" << map.get_bucket_count()
+                      << " size=" << map.size() << "\n";
+        }
         state.check(map.size() == 8000, "size matches concurrent inserts");
     }
 

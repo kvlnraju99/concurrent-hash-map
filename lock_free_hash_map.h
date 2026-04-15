@@ -59,6 +59,12 @@ public:
     };
 
 private:
+    enum class PutResult {
+        inserted,
+        updated,
+        retry,
+    };
+
     struct PutProfiler {
         std::atomic<uint64_t> put_calls{0};
         std::atomic<uint64_t> successful_inserts{0};
@@ -171,6 +177,15 @@ private:
         return table->bucket_state[idx].load(std::memory_order_acquire);
     }
 
+    void decrement_size_if_possible() {
+        size_t current = element_count.load(std::memory_order_relaxed);
+        while (current > 0 &&
+               !element_count.compare_exchange_weak(current, current - 1,
+                                                    std::memory_order_relaxed,
+                                                    std::memory_order_relaxed)) {
+        }
+    }
+
     static void debug_log(const char* event,
                           const void* table,
                           size_t bucket_count,
@@ -204,8 +219,18 @@ private:
         }
     }
 
-    bool insert_or_update_in_bucket(Bucket& bucket, const K& key, const V& value,
-                                    PutProfileSnapshot* sample) {
+    PutResult insert_or_update_in_bucket(Table* table,
+                                         size_t idx,
+                                         Bucket& bucket,
+                                         const K& key,
+                                         const V& value,
+                                         PutProfileSnapshot* sample) {
+        if (table->next_table.load(std::memory_order_acquire) != nullptr &&
+            bucket_state(table, idx) != 0) {
+            debug_log("retry-closed-bucket", table, table->bucket_count, idx, 0);
+            return PutResult::retry;
+        }
+
         std::atomic<Node*>* link = &bucket.head;
         Node* curr = link->load(std::memory_order_acquire);
         uint64_t chain_length = 0;
@@ -222,13 +247,18 @@ private:
 
             ++chain_length;
             if (curr->key == key) {
+                if (table->next_table.load(std::memory_order_acquire) != nullptr &&
+                    bucket_state(table, idx) != 0) {
+                    debug_log("retry-update-closed-bucket", table, table->bucket_count, idx, 0);
+                    return PutResult::retry;
+                }
                 curr->value = value;
                 if (sample != nullptr) {
                     sample->updated_existing = 1;
                     sample->traversal_nodes = chain_length;
                     sample->max_chain_length_seen = chain_length;
                 }
-                return false;
+                return PutResult::updated;
             }
             link = &curr->next;
             curr = next;
@@ -237,6 +267,12 @@ private:
         if (sample != nullptr) {
             sample->traversal_nodes = chain_length;
             sample->max_chain_length_seen = chain_length;
+        }
+
+        if (table->next_table.load(std::memory_order_acquire) != nullptr &&
+            bucket_state(table, idx) != 0) {
+            debug_log("retry-before-insert", table, table->bucket_count, idx, 0);
+            return PutResult::retry;
         }
 
         const auto allocation_start = sample != nullptr ? ProfileClock::now() : ProfileClock::time_point{};
@@ -249,6 +285,12 @@ private:
         const auto cas_start = sample != nullptr ? ProfileClock::now() : ProfileClock::time_point{};
         bool inserted = false;
         while (!inserted) {
+            if (table->next_table.load(std::memory_order_acquire) != nullptr &&
+                bucket_state(table, idx) != 0) {
+                delete new_node;
+                debug_log("retry-during-cas", table, table->bucket_count, idx, 0);
+                return PutResult::retry;
+            }
             if (sample != nullptr) {
                 ++sample->cas_attempts;
             }
@@ -264,22 +306,23 @@ private:
             sample->cas_ns += elapsed_ns(cas_start, ProfileClock::now());
             sample->successful_inserts = 1;
         }
-        return true;
+        return PutResult::inserted;
     }
 
-    bool insert_or_update(Table* table, const K& key, const V& value,
-                          PutProfileSnapshot* sample) {
+    PutResult insert_or_update(Table* table, const K& key, const V& value,
+                               PutProfileSnapshot* sample) {
         const auto hash_start = sample != nullptr ? ProfileClock::now() : ProfileClock::time_point{};
         const size_t idx = get_bucket_index(key, table->bucket_count);
         if (sample != nullptr) {
             sample->hash_ns += elapsed_ns(hash_start, ProfileClock::now());
         }
         const auto traversal_start = sample != nullptr ? ProfileClock::now() : ProfileClock::time_point{};
-        const bool inserted = insert_or_update_in_bucket(table->buckets[idx], key, value, sample);
+        const PutResult result =
+            insert_or_update_in_bucket(table, idx, table->buckets[idx], key, value, sample);
         if (sample != nullptr) {
             sample->traversal_ns += elapsed_ns(traversal_start, ProfileClock::now()) - sample->allocation_ns - sample->cas_ns;
         }
-        return inserted;
+        return result;
     }
 
     void copy_bucket_live_nodes(Table* source, size_t idx, Table* target) {
@@ -288,7 +331,8 @@ private:
             Node* next = curr->next.load(std::memory_order_acquire);
             if (!curr->deleted.load(std::memory_order_acquire)) {
                 const size_t target_idx = get_bucket_index(curr->key, target->bucket_count);
-                (void)insert_or_update_in_bucket(target->buckets[target_idx], curr->key, curr->value, nullptr);
+                (void)insert_or_update_in_bucket(target, target_idx, target->buckets[target_idx],
+                                                 curr->key, curr->value, nullptr);
             }
             curr = next;
         }
@@ -461,7 +505,7 @@ public:
             const size_t before_alloc = sample.allocation_ns;
             const size_t before_cas = sample.cas_ns;
             const auto traversal_start = profiling_enabled ? ProfileClock::now() : ProfileClock::time_point{};
-            const bool inserted = insert_or_update(table, key, value, profiling_enabled ? &sample : nullptr);
+            const PutResult result = insert_or_update(table, key, value, profiling_enabled ? &sample : nullptr);
             if (profiling_enabled) {
                 const uint64_t section_ns = elapsed_ns(traversal_start, ProfileClock::now());
                 const uint64_t alloc_delta = sample.allocation_ns - before_alloc;
@@ -469,6 +513,10 @@ public:
                 sample.traversal_ns += (section_ns > alloc_delta + cas_delta)
                     ? (section_ns - alloc_delta - cas_delta)
                     : 0;
+            }
+
+            if (result == PutResult::retry) {
+                continue;
             }
 
             // If resize started while we were writing, mirror the final value
@@ -481,7 +529,7 @@ public:
                 debug_log("mirror-insert", next, next->bucket_count, idx, 0);
             }
 
-            if (inserted) {
+            if (result == PutResult::inserted) {
                 const auto bookkeeping_start = profiling_enabled ? ProfileClock::now() : ProfileClock::time_point{};
                 element_count.fetch_add(1, std::memory_order_relaxed);
                 if (profiling_enabled) {
@@ -507,7 +555,7 @@ public:
         Table* table = ensure_current_target(key);
         const bool removed = remove_from_table(table, key);
         if (removed) {
-            element_count.fetch_sub(1, std::memory_order_relaxed);
+            decrement_size_if_possible();
         }
         return removed;
     }

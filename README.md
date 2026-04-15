@@ -16,6 +16,7 @@ This repository contains two C++ hash map implementations:
 - `benchmark.cpp` - side-by-side throughput benchmark
 - `profile.cpp` - lock-free `put()` micro-profiler
 - `bucket_sweep.cpp` - bucket-count sweep for `put/get/remove/miss`
+- `scripts/variant_sweep.py` - cross-branch sweep for all four major map variants
 - `Makefile` - build and run targets
 
 ## Build
@@ -52,6 +53,25 @@ Bucket sweep:
 ./bucket_sweep --threads 64 --ops-per-thread 5000 --raw
 ./bucket_sweep --threads 64 --ops-per-thread 5000 --buckets 32768,65536,131072,262144
 ```
+
+Cross-variant sweep:
+
+```bash
+python3 ./scripts/variant_sweep.py
+```
+
+This creates two CSV files under `/Users/kvlnraju/College/courses/semester-4/multi-core/project/concurrent-hash-map/results`:
+
+- `variant_sweep_raw.csv` - every run
+- `variant_sweep_summary.csv` - median/mean/best per scenario
+
+Default matrix:
+
+- variants: locked dynamic, fixed-size lock-free chaining, dynamic-resizing lock-free chaining, open-addressing experiment
+- workloads: `put`, `get`, `mixed`
+- threads: `1,2,4,8,16`
+- buckets: `65536,262144,1048576`
+- open-addressing-safe load: `key_space = buckets * 0.25`
 
 ## Make targets
 

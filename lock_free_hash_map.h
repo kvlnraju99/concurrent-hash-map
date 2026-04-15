@@ -719,6 +719,44 @@ public:
         }
         return snapshot;
     }
+
+    uint64_t debug_live_count_for_key(const K& key) const {
+        uint64_t total = 0;
+        for (Table* table : tables_for_cleanup) {
+            const size_t idx = get_bucket_index(key, table->bucket_count);
+            Node* curr = table->buckets[idx].head.load(std::memory_order_acquire);
+            while (curr) {
+                if (!curr->deleted.load(std::memory_order_acquire) && curr->key == key) {
+                    ++total;
+                }
+                curr = curr->next.load(std::memory_order_acquire);
+            }
+        }
+        return total;
+    }
+
+    void debug_print_key_locations(const K& key) const {
+        std::fprintf(stderr, "[lf-resize] key-locations key=%d\n", static_cast<int>(key));
+        for (Table* table : tables_for_cleanup) {
+            const size_t idx = get_bucket_index(key, table->bucket_count);
+            uint64_t live = 0;
+            Node* curr = table->buckets[idx].head.load(std::memory_order_acquire);
+            while (curr) {
+                if (!curr->deleted.load(std::memory_order_acquire) && curr->key == key) {
+                    ++live;
+                }
+                curr = curr->next.load(std::memory_order_acquire);
+            }
+            std::fprintf(stderr,
+                         "[lf-resize]   table=%p buckets=%zu idx=%zu live=%llu current=%d next=%p\n",
+                         static_cast<void*>(table),
+                         table->bucket_count,
+                         idx,
+                         static_cast<unsigned long long>(live),
+                         current_table.load(std::memory_order_acquire) == table ? 1 : 0,
+                         static_cast<void*>(table->next_table.load(std::memory_order_acquire)));
+        }
+    }
 };
 
 #endif // LOCK_FREE_HASH_MAP_H

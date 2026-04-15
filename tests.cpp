@@ -136,6 +136,60 @@ void run_same_key_race_rounds(TestState& state,
     state.check(all_rounds_ok, "repeated same-key race keeps valid state");
 }
 
+template <>
+void run_same_key_race_rounds<LockFreeHashMap<int, int>>(TestState& state,
+                                                         const std::string& label,
+                                                         size_t buckets,
+                                                         int rounds,
+                                                         int num_threads,
+                                                         int ops_per_thread) {
+    std::cout << "\n--- " << label << " ---\n";
+    bool all_rounds_ok = true;
+
+    for (int round = 0; round < rounds; ++round) {
+        LockFreeHashMap<int, int> map(buckets);
+        map.put(0, -1);
+
+        std::vector<std::thread> threads;
+        for (int t = 0; t < num_threads; ++t) {
+            threads.emplace_back([&map, t, ops_per_thread]() {
+                for (int i = 0; i < ops_per_thread; ++i) {
+                    const int op = (t + i) % 3;
+                    if (op == 0) {
+                        map.put(0, t * ops_per_thread + i);
+                    } else if (op == 1) {
+                        map.get(0);
+                    } else {
+                        map.remove(0);
+                    }
+                }
+            });
+        }
+        for (auto& thread : threads) {
+            thread.join();
+        }
+
+        const auto value = map.get(0);
+        const size_t size = map.size();
+        const bool valid_size = (size <= 1);
+        const bool valid_value =
+            !value.has_value() || (value.value() >= 0 && value.value() < num_threads * ops_per_thread);
+
+        if (!valid_size || !valid_value) {
+            all_rounds_ok = false;
+            std::cout << "    failure round=" << round
+                      << " size=" << size
+                      << " value=" << (value.has_value() ? std::to_string(value.value()) : std::string("missing"))
+                      << " live_nodes_for_key0=" << map.debug_live_count_for_key(0)
+                      << "\n";
+            map.debug_print_key_locations(0);
+            break;
+        }
+    }
+
+    state.check(all_rounds_ok, "repeated same-key race keeps valid state");
+}
+
 void test_locked_single_thread(TestState& state) {
     std::cout << "\n[Locked] Single-thread\n";
 

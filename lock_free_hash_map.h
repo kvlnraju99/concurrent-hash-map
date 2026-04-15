@@ -58,6 +58,12 @@ public:
         uint64_t max_chain_length = 0;
     };
 
+    struct KeyDuplicateSnapshot {
+        uint64_t duplicate_live_keys = 0;
+        uint64_t duplicate_live_nodes = 0;
+        uint64_t max_live_nodes_for_key = 0;
+    };
+
 private:
     enum class PutResult {
         inserted,
@@ -648,6 +654,36 @@ public:
             }
         }
 
+        return snapshot;
+    }
+
+    KeyDuplicateSnapshot get_duplicate_stats_for_range(const K& begin_key,
+                                                       const K& end_key) const {
+        KeyDuplicateSnapshot snapshot;
+        if (end_key < begin_key) {
+            return snapshot;
+        }
+
+        Table* table = current_table.load(std::memory_order_acquire);
+        for (K key = begin_key; key <= end_key; ++key) {
+            const size_t idx = get_bucket_index(key, table->bucket_count);
+            uint64_t live_matches = 0;
+            Node* curr = table->buckets[idx].head.load(std::memory_order_acquire);
+            while (curr) {
+                if (!curr->deleted.load(std::memory_order_acquire) && curr->key == key) {
+                    ++live_matches;
+                }
+                curr = curr->next.load(std::memory_order_acquire);
+            }
+
+            if (live_matches > 1) {
+                ++snapshot.duplicate_live_keys;
+                snapshot.duplicate_live_nodes += live_matches;
+                if (live_matches > snapshot.max_live_nodes_for_key) {
+                    snapshot.max_live_nodes_for_key = live_matches;
+                }
+            }
+        }
         return snapshot;
     }
 };

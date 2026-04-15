@@ -552,8 +552,17 @@ void test_lockfree_parallel(TestState& state) {
         for (auto& thread : threads) {
             thread.join();
         }
+        const size_t stress_size = map.size();
+        const auto duplicate_stats = map.get_duplicate_stats_for_range(0, 999);
         state.check(true, "400000 ops completed without crashing");
-        state.check(map.size() <= 1000, "stress size stays within key space");
+        state.check(stress_size <= 1000, "stress size stays within key space");
+        if (stress_size > 1000) {
+            std::cout << "    stress size=" << stress_size
+                      << " duplicate_keys=" << duplicate_stats.duplicate_live_keys
+                      << " duplicate_nodes=" << duplicate_stats.duplicate_live_nodes
+                      << " max_nodes_per_key=" << duplicate_stats.max_live_nodes_for_key
+                      << "\n";
+        }
     }
 
     run_disjoint_insert_remove_round<LockFreeHashMap<int, int>>(

@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -13,16 +14,19 @@ namespace {
 
 using Clock = std::chrono::steady_clock;
 
+struct Config {
+    int threads = static_cast<int>(std::thread::hardware_concurrency());
+    int ops_per_thread = 20000;
+    bool raw_mode = false;
+    std::vector<size_t> bucket_counts = {16384, 32768, 65536, 131072, 262144, 524288};
+};
+
 struct SweepResult {
     size_t buckets = 0;
     uint64_t total_keys = 0;
     double load_factor = 0.0;
     double avg_chain_non_empty = 0.0;
     uint64_t max_chain = 0;
-    double put_ms = 0.0;
-    double get_ms = 0.0;
-    double remove_ms = 0.0;
-    double miss_get_ms = 0.0;
     double put_ns = 0.0;
     double get_ns = 0.0;
     double remove_ns = 0.0;
@@ -38,6 +42,52 @@ struct SweepResult {
     uint64_t deleted_nodes_after_remove = 0;
 };
 
+void print_usage(const char* program) {
+    std::cout << "Usage: " << program
+              << " [--threads N] [--ops-per-thread N] [--raw]"
+              << " [--buckets N1,N2,...]\n";
+}
+
+std::vector<size_t> parse_bucket_list(const std::string& text) {
+    std::vector<size_t> buckets;
+    std::stringstream stream(text);
+    std::string item;
+    while (std::getline(stream, item, ',')) {
+        if (!item.empty()) {
+            buckets.push_back(static_cast<size_t>(std::strtoull(item.c_str(), nullptr, 10)));
+        }
+    }
+    if (buckets.empty()) {
+        buckets = {16384, 32768, 65536, 131072, 262144, 524288};
+    }
+    return buckets;
+}
+
+Config parse_args(int argc, char* argv[]) {
+    Config config;
+    if (config.threads <= 0) {
+        config.threads = 4;
+    }
+
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if (arg == "--threads" && i + 1 < argc) {
+            config.threads = std::max(1, std::atoi(argv[++i]));
+        } else if (arg == "--ops-per-thread" && i + 1 < argc) {
+            config.ops_per_thread = std::max(1, std::atoi(argv[++i]));
+        } else if (arg == "--raw") {
+            config.raw_mode = true;
+        } else if (arg == "--buckets" && i + 1 < argc) {
+            config.bucket_counts = parse_bucket_list(argv[++i]);
+        } else {
+            print_usage(argv[0]);
+            std::exit(1);
+        }
+    }
+
+    return config;
+}
+
 template <typename Fn>
 double run_parallel_phase(int num_threads, Fn&& fn) {
     std::vector<std::thread> threads;
@@ -51,7 +101,6 @@ double run_parallel_phase(int num_threads, Fn&& fn) {
         thread.join();
     }
     const auto end = Clock::now();
-
     return std::chrono::duration<double, std::milli>(end - start).count();
 }
 
@@ -66,7 +115,6 @@ SweepResult run_sweep_case(size_t buckets, int num_threads, int ops_per_thread) 
             map.put(key, key);
         }
     });
-
     const auto put_profile = map.get_put_profile();
     const auto after_put = map.get_bucket_stats();
 
@@ -76,14 +124,12 @@ SweepResult run_sweep_case(size_t buckets, int num_threads, int ops_per_thread) 
             (void)map.get(key);
         }
     });
-
     const double remove_ms = run_parallel_phase(num_threads, [&](int thread_id) {
         for (int i = 0; i < ops_per_thread; ++i) {
             const int key = thread_id * ops_per_thread + i;
             (void)map.remove(key);
         }
     });
-
     const auto after_remove = map.get_bucket_stats();
     const double miss_get_ms = run_parallel_phase(num_threads, [&](int thread_id) {
         for (int i = 0; i < ops_per_thread; ++i) {
@@ -91,6 +137,7 @@ SweepResult run_sweep_case(size_t buckets, int num_threads, int ops_per_thread) 
             (void)map.get(key);
         }
     });
+
     const double total_ops = total_keys == 0 ? 1.0 : static_cast<double>(total_keys);
 
     SweepResult result;
@@ -103,10 +150,6 @@ SweepResult run_sweep_case(size_t buckets, int num_threads, int ops_per_thread) 
             : static_cast<double>(after_put.total_nodes) /
                   static_cast<double>(after_put.non_empty_buckets);
     result.max_chain = after_put.max_chain_length;
-    result.put_ms = put_ms;
-    result.get_ms = get_ms;
-    result.remove_ms = remove_ms;
-    result.miss_get_ms = miss_get_ms;
     result.put_ns = (put_ms * 1'000'000.0) / total_ops;
     result.get_ns = (get_ms * 1'000'000.0) / total_ops;
     result.remove_ns = (remove_ms * 1'000'000.0) / total_ops;
@@ -115,13 +158,14 @@ SweepResult run_sweep_case(size_t buckets, int num_threads, int ops_per_thread) 
     result.get_mops = total_ops / (get_ms * 1000.0);
     result.remove_mops = total_ops / (remove_ms * 1000.0);
     result.miss_get_mops = total_ops / (miss_get_ms * 1000.0);
+    result.deleted_nodes_after_remove = after_remove.deleted_nodes;
+
     if constexpr (EnablePutProfiling) {
         result.put_traversal_ns = put_profile.traversal_ns / total_ops;
         result.put_allocation_ns = put_profile.allocation_ns / total_ops;
         result.put_cas_ns = put_profile.cas_ns / total_ops;
         result.put_cas_failures = put_profile.cas_failures / total_ops;
     }
-    result.deleted_nodes_after_remove = after_remove.deleted_nodes;
     return result;
 }
 
@@ -150,7 +194,6 @@ void print_results(const std::vector<SweepResult>& results, bool include_put_pro
         std::cout << "\nPUT internals (avg per insert)\n";
         std::cout << "Buckets      Traverse ns   Alloc ns     CAS ns   CAS fail/op   Deleted nodes after remove\n";
         std::cout << "--------------------------------------------------------------------------------------------\n";
-
         for (const auto& result : results) {
             std::cout << std::setw(7) << result.buckets
                       << std::setw(16) << std::fixed << std::setprecision(2) << result.put_traversal_ns
@@ -164,7 +207,6 @@ void print_results(const std::vector<SweepResult>& results, bool include_put_pro
         std::cout << "\nDeleted nodes after remove\n";
         std::cout << "Buckets      Deleted nodes\n";
         std::cout << "--------------------------\n";
-
         for (const auto& result : results) {
             std::cout << std::setw(7) << result.buckets
                       << std::setw(19) << result.deleted_nodes_after_remove
@@ -176,41 +218,32 @@ void print_results(const std::vector<SweepResult>& results, bool include_put_pro
 }  // namespace
 
 int main(int argc, char* argv[]) {
-    int num_threads = static_cast<int>(std::thread::hardware_concurrency());
-    if (num_threads <= 0) {
-        num_threads = 4;
-    }
-    int ops_per_thread = 20000;
+    const Config config = parse_args(argc, argv);
 
-    if (argc >= 2) {
-        num_threads = std::max(1, std::atoi(argv[1]));
+    std::cout << (config.raw_mode ? "Lock-free bucket sweep (raw timings)\n"
+                                  : "Lock-free bucket sweep\n");
+    std::cout << "threads=" << config.threads
+              << ", ops/thread=" << config.ops_per_thread
+              << ", buckets=";
+    for (size_t i = 0; i < config.bucket_counts.size(); ++i) {
+        std::cout << config.bucket_counts[i];
+        if (i + 1 < config.bucket_counts.size()) {
+            std::cout << ",";
+        }
     }
-    if (argc >= 3) {
-        ops_per_thread = std::max(1, std::atoi(argv[2]));
-    }
-    bool raw_mode = (argc >= 4 && std::string(argv[3]) == "--raw");
-
-    const std::vector<size_t> bucket_counts = {16384, 32768, 65536, 131072, 262144, 524288};
-
-    std::cout << (raw_mode ? "Lock-free bucket sweep (raw timings)\n"
-                           : "Lock-free bucket sweep\n");
-    std::cout << "threads=" << num_threads
-              << ", ops/thread=" << ops_per_thread
-              << ", total unique keys=" << static_cast<uint64_t>(num_threads) * ops_per_thread
-              << "\n";
+    std::cout << "\n";
 
     std::vector<SweepResult> results;
-    results.reserve(bucket_counts.size());
-
-    for (size_t buckets : bucket_counts) {
+    results.reserve(config.bucket_counts.size());
+    for (size_t buckets : config.bucket_counts) {
         std::cout << "running buckets=" << buckets << "...\n";
-        if (raw_mode) {
-            results.push_back(run_sweep_case<false>(buckets, num_threads, ops_per_thread));
+        if (config.raw_mode) {
+            results.push_back(run_sweep_case<false>(buckets, config.threads, config.ops_per_thread));
         } else {
-            results.push_back(run_sweep_case<true>(buckets, num_threads, ops_per_thread));
+            results.push_back(run_sweep_case<true>(buckets, config.threads, config.ops_per_thread));
         }
     }
 
-    print_results(results, !raw_mode);
+    print_results(results, !config.raw_mode);
     return 0;
 }

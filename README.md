@@ -1,105 +1,70 @@
-# Concurrent Hash Map --- Day Plan README
+# Concurrent Hash Map
 
-## Goal
+This repository contains two C++ hash map implementations:
 
-Implement a **basic concurrent hash map in C++** with correct
-functionality and thread safety using bucket-level locking.
+- `ConcurrentHashMap` in `/Users/kvlnraju/College/courses/semester-4/multi-core/project/concurrent-hash-map/concurrent_hash_map.h`
+  - bucket-level locking
+  - dynamic resizing
+- `LockFreeHashMap` in `/Users/kvlnraju/College/courses/semester-4/multi-core/project/concurrent-hash-map/lock_free_hash_map.h`
+  - fixed bucket count
+  - lock-free insert/get/remove traversal with eager unlinking of deleted nodes
+  - optional software profiling for `put()`
 
-------------------------------------------------------------------------
+## Files
 
-## Scope
+- `tests.cpp` - correctness tests for locked and lock-free maps
+- `benchmark.cpp` - side-by-side throughput benchmark
+- `profile.cpp` - lock-free `put()` micro-profiler
+- `bucket_sweep.cpp` - bucket-count sweep for `put/get/remove/miss`
+- `Makefile` - build and run targets
 
-### Included
+## Build
 
--   Buckets
--   Hashing using modulo
--   Chaining (vector of key-value pairs)
--   Operations:
-    -   put
-    -   get
-    -   remove
--   One mutex per bucket
--   Multi-thread testing
+```bash
+make
+```
 
-### Excluded
+## Run
 
--   Resizing
--   shared_mutex
--   Lock-free techniques
--   Optimizations
+Tests:
 
-------------------------------------------------------------------------
+```bash
+./hash_map_test
+./hash_map_test locked
+./hash_map_test lockfree
+```
 
-## Step-by-Step Plan
+Benchmark:
 
-### 1. Build the Base Structure
+```bash
+./benchmark --threads 64 --ops 800000 --buckets 524288
+```
 
--   Define `Bucket` struct
--   Define `ConcurrentHashMap` class
--   Create `vector<Bucket>` to store buckets
+PUT micro-profile:
 
-------------------------------------------------------------------------
+```bash
+./profile_runner --threads 64 --ops-per-thread 5000 --single-bucket-ops 1000 --wide-buckets 131072 --hot-key-space 64
+```
 
-### 2. Implement Basic Logic
+Bucket sweep:
 
--   Compute hash of key
--   Map key to bucket using:
-    -   `index = hash(key) % bucket_count`
--   Store key-value pairs in bucket list
+```bash
+./bucket_sweep --threads 64 --ops-per-thread 5000 --raw
+./bucket_sweep --threads 64 --ops-per-thread 5000 --buckets 32768,65536,131072,262144
+```
 
-------------------------------------------------------------------------
+## Make targets
 
-### 3. Implement Operations
+```bash
+make test
+make bench
+make profile
+make sweep
+make clean
+```
 
-Implement: - `put(key, value)` - `get(key)` - `remove(key)`
+## Notes
 
-Focus only on correctness (no concurrency yet).
-
-------------------------------------------------------------------------
-
-### 4. Add Concurrency
-
--   Add `std::mutex` inside each bucket
--   Lock the bucket before accessing/modifying data
--   Use:
-    -   `std::lock_guard<std::mutex>` for automatic unlocking
-
-------------------------------------------------------------------------
-
-### 5. Testing
-
-#### Single-thread tests
-
--   Insert values
--   Retrieve values
--   Update values
--   Remove values
-
-#### Multi-thread tests
-
--   Multiple `put` operations
--   Multiple `get` operations
--   Multiple `remove` operations
--   Mixed operations across threads
-
-------------------------------------------------------------------------
-
-### 6. Final Cleanup
-
--   Ensure no crashes
--   Verify correctness of outputs
--   Keep code simple and readable
-
-------------------------------------------------------------------------
-
-## Expected Outcome
-
-By the end: - A working concurrent hash map - Thread-safe operations -
-Multi-thread test validation - Clean and understandable implementation
-
-------------------------------------------------------------------------
-
-## One-Line Summary
-
-Build a concurrent hash map using bucket-level locking to allow safe
-parallel access by multiple threads.
+- The lock-free map does not implement dynamic resizing.
+- The lock-free profiler is software-level instrumentation, not hardware counter profiling.
+- The single-bucket profiling scenario is intentionally worst-case; keep `--single-bucket-ops` smaller for quick runs.

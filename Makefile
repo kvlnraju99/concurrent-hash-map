@@ -1,16 +1,16 @@
 CXX      = g++
 CXXFLAGS = -std=c++17 -pthread -Wall -Wextra -Wno-unused-lambda-capture
-TARGET   = hash_map_test
+TESTS    = hash_map_test
 BENCH    = benchmark
 PROFILE  = profile_runner
 SWEEP    = bucket_sweep
 
-all: $(TARGET) $(BENCH) $(PROFILE) $(SWEEP)
+all: $(TESTS) $(BENCH) $(PROFILE) $(SWEEP)
 
-$(TARGET): main.cpp concurrent_hash_map.h
-	$(CXX) $(CXXFLAGS) -o $(TARGET) main.cpp
+$(TESTS): tests.cpp concurrent_hash_map.h lock_free_hash_map.h
+	$(CXX) $(CXXFLAGS) -O2 -o $(TESTS) tests.cpp
 
-$(BENCH): benchmark.cpp concurrent_hash_map.h
+$(BENCH): benchmark.cpp concurrent_hash_map.h lock_free_hash_map.h
 	$(CXX) $(CXXFLAGS) -O2 -o $(BENCH) benchmark.cpp
 
 $(PROFILE): profile.cpp lock_free_hash_map.h
@@ -19,8 +19,8 @@ $(PROFILE): profile.cpp lock_free_hash_map.h
 $(SWEEP): bucket_sweep.cpp lock_free_hash_map.h
 	$(CXX) $(CXXFLAGS) -O2 -o $(SWEEP) bucket_sweep.cpp
 
-run: $(TARGET)
-	./$(TARGET)
+test: $(TESTS)
+	./$(TESTS)
 
 bench: $(BENCH)
 	./$(BENCH)
@@ -32,4 +32,4 @@ sweep: $(SWEEP)
 	./$(SWEEP)
 
 clean:
-	rm -f $(TARGET) $(BENCH) $(PROFILE) $(SWEEP)
+	rm -f $(TESTS) $(BENCH) $(PROFILE) $(SWEEP)

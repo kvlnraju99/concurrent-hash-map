@@ -1,6 +1,8 @@
 # Compiled binaries
 hash_map_test
 benchmark
+bucket_sweep
+profile_runner
 
 # OS files
 .DS_Store

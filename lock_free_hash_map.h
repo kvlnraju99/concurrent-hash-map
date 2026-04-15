@@ -2,13 +2,10 @@
 #define LOCK_FREE_HASH_MAP_H
 
 #include <atomic>
-#include <cstddef>
 #include <chrono>
 #include <cstdint>
 #include <functional>
 #include <memory>
-#include <mutex>
-#include <new>
 #include <optional>
 #include <string>
 #include <utility>
@@ -21,8 +18,7 @@
 //   - GET: just walk the list (reads are naturally safe).
 //   - REMOVE: mark the node as deleted using an atomic flag.
 //
-// The fast path uses only atomics. A small mutex is used only when the
-// chunk allocator needs to grow its backing storage.
+// No mutex is used anywhere. Threads never block or wait.
 //
 // Known limitations (acceptable for a course project):
 //   - No resizing (fixed bucket count).
@@ -94,33 +90,10 @@ private:
         Bucket() : head(nullptr) {}
     };
 
-    struct NodeChunk {
-        std::unique_ptr<std::byte[]> storage;
-        std::atomic<size_t> next_index;
-        size_t capacity;
-        NodeChunk* next;
-
-        explicit NodeChunk(size_t chunk_capacity)
-            : storage(std::make_unique<std::byte[]>(sizeof(Node) * chunk_capacity)),
-              next_index(0),
-              capacity(chunk_capacity),
-              next(nullptr) {
-        }
-
-        Node* slot(size_t index) const {
-            return std::launder(
-                reinterpret_cast<Node*>(storage.get() + index * sizeof(Node)));
-        }
-    };
-
     std::unique_ptr<Bucket[]> buckets;  // array of aligned bucket head pointers
     size_t bucket_count;
     std::atomic<size_t> element_count;
     std::unique_ptr<PutProfiler> put_profiler;
-    size_t node_chunk_capacity;
-    std::atomic<NodeChunk*> active_chunk;
-    NodeChunk* chunk_list_head;
-    mutable std::mutex chunk_mutex;
 
     static uint64_t elapsed_ns(const ProfileClock::time_point& start,
                                const ProfileClock::time_point& end) {
@@ -161,49 +134,6 @@ private:
         update_max(put_profiler->max_chain_length_seen, sample.max_chain_length_seen);
     }
 
-    NodeChunk* ensure_chunk() {
-        NodeChunk* chunk = active_chunk.load(std::memory_order_acquire);
-        if (chunk != nullptr) {
-            return chunk;
-        }
-
-        std::lock_guard<std::mutex> lock(chunk_mutex);
-        chunk = active_chunk.load(std::memory_order_acquire);
-        if (chunk == nullptr) {
-            chunk = new NodeChunk(node_chunk_capacity);
-            chunk->next = chunk_list_head;
-            chunk_list_head = chunk;
-            active_chunk.store(chunk, std::memory_order_release);
-        }
-        return chunk;
-    }
-
-    Node* allocate_node(const K& key, const V& value) {
-        while (true) {
-            NodeChunk* chunk = ensure_chunk();
-            size_t index = chunk->next_index.load(std::memory_order_relaxed);
-
-            while (index < chunk->capacity) {
-                if (chunk->next_index.compare_exchange_weak(
-                        index, index + 1,
-                        std::memory_order_relaxed,
-                        std::memory_order_relaxed)) {
-                    return new (chunk->slot(index)) Node(key, value);
-                }
-            }
-
-            std::lock_guard<std::mutex> lock(chunk_mutex);
-            NodeChunk* current = active_chunk.load(std::memory_order_acquire);
-            if (current == chunk &&
-                current->next_index.load(std::memory_order_relaxed) >= current->capacity) {
-                NodeChunk* next_chunk = new NodeChunk(node_chunk_capacity);
-                next_chunk->next = chunk_list_head;
-                chunk_list_head = next_chunk;
-                active_chunk.store(next_chunk, std::memory_order_release);
-            }
-        }
-    }
-
     static bool unlink_deleted_node(std::atomic<Node*>* link, Node* curr, Node* next) {
         return link->compare_exchange_strong(
             curr, next,
@@ -219,28 +149,21 @@ private:
 public:
 
     explicit LockFreeHashMap(size_t num_buckets = 16,
-                             bool enable_put_profiling = false,
-                             size_t node_chunk_size = 4096)
+                             bool enable_put_profiling = false)
         : buckets(new Bucket[num_buckets]),
           bucket_count(num_buckets), element_count(0),
-          put_profiler(enable_put_profiling ? std::make_unique<PutProfiler>() : nullptr),
-          node_chunk_capacity(node_chunk_size == 0 ? 1 : node_chunk_size),
-          active_chunk(nullptr),
-          chunk_list_head(nullptr) {
+          put_profiler(enable_put_profiling ? std::make_unique<PutProfiler>() : nullptr) {
     }
 
     // Clean up all nodes.
     ~LockFreeHashMap() {
-        NodeChunk* chunk = chunk_list_head;
-        while (chunk) {
-            const size_t constructed =
-                std::min(chunk->next_index.load(std::memory_order_relaxed), chunk->capacity);
-            for (size_t i = 0; i < constructed; ++i) {
-                chunk->slot(i)->~Node();
+        for (size_t i = 0; i < bucket_count; i++) {
+            Node* curr = buckets[i].head.load(std::memory_order_relaxed);
+            while (curr) {
+                Node* next = curr->next.load(std::memory_order_relaxed);
+                delete curr;
+                curr = next;
             }
-            NodeChunk* next = chunk->next;
-            delete chunk;
-            chunk = next;
         }
     }
 
@@ -301,7 +224,7 @@ public:
         // Key not found — create a new node and prepend it using CAS.
         const auto allocation_start =
             profiling_enabled ? ProfileClock::now() : ProfileClock::time_point{};
-        Node* new_node = allocate_node(key, value);
+        Node* new_node = new Node(key, value);
         if (profiling_enabled) {
             sample.allocation_ns = elapsed_ns(allocation_start, ProfileClock::now());
         }

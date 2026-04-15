@@ -4,6 +4,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <cstdio>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -170,6 +171,24 @@ private:
         return table->bucket_state[idx].load(std::memory_order_acquire);
     }
 
+    static void debug_log(const char* event,
+                          const void* table,
+                          size_t bucket_count,
+                          size_t key_hash,
+                          size_t detail) {
+#ifdef LF_RESIZE_DEBUG
+        std::fprintf(stderr,
+                     "[lf-resize] %s table=%p buckets=%zu key_hash=%zu detail=%zu\n",
+                     event, table, bucket_count, key_hash, detail);
+#else
+        (void)event;
+        (void)table;
+        (void)bucket_count;
+        (void)key_hash;
+        (void)detail;
+#endif
+    }
+
     void promote_table_if_ready(Table* table) {
         Table* next = table->next_table.load(std::memory_order_acquire);
         if (next == nullptr) {
@@ -178,9 +197,11 @@ private:
         if (table->migrated_buckets.load(std::memory_order_acquire) != table->bucket_count) {
             return;
         }
-        current_table.compare_exchange_strong(table, next,
-                                              std::memory_order_release,
-                                              std::memory_order_acquire);
+        if (current_table.compare_exchange_strong(table, next,
+                                                  std::memory_order_release,
+                                                  std::memory_order_acquire)) {
+            debug_log("promote", next, next->bucket_count, 0, table->bucket_count);
+        }
     }
 
     bool insert_or_update_in_bucket(Bucket& bucket, const K& key, const V& value,
@@ -283,9 +304,12 @@ private:
         if (table->bucket_state[idx].compare_exchange_strong(expected, 1,
                                                              std::memory_order_acq_rel,
                                                              std::memory_order_acquire)) {
+            debug_log("migrate-begin", table, table->bucket_count, idx, 0);
             copy_bucket_live_nodes(table, idx, next);
             table->bucket_state[idx].store(2, std::memory_order_release);
-            table->migrated_buckets.fetch_add(1, std::memory_order_release);
+            const size_t migrated =
+                table->migrated_buckets.fetch_add(1, std::memory_order_release) + 1;
+            debug_log("migrate-end", next, next->bucket_count, idx, migrated);
             promote_table_if_ready(table);
             return;
         }
@@ -338,6 +362,7 @@ private:
                                                       std::memory_order_release,
                                                       std::memory_order_acquire)) {
             tables_for_cleanup.push_back(grown);
+            debug_log("resize-start", grown, grown->bucket_count, 0, table->bucket_count);
         } else {
             delete grown;
         }
@@ -453,6 +478,7 @@ public:
                 const size_t idx = get_bucket_index(key, table->bucket_count);
                 help_migrate_bucket(table, idx);
                 (void)insert_or_update(next, key, value, nullptr);
+                debug_log("mirror-insert", next, next->bucket_count, idx, 0);
             }
 
             if (inserted) {

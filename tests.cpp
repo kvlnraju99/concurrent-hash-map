@@ -402,6 +402,45 @@ void test_lockfree_parallel(TestState& state) {
     }
 
     {
+        std::cout << "\n--- Resize Repro (Small) ---\n";
+        LockFreeHashMap<int, int> map(4, false, 0.75);
+        std::vector<std::thread> threads;
+        for (int t = 0; t < 4; ++t) {
+            threads.emplace_back([&map, t]() {
+                for (int i = 0; i < 64; ++i) {
+                    const int key = t * 1000 + i;
+                    map.put(key, key);
+                    if ((i % 8) == 0) {
+                        std::this_thread::yield();
+                    }
+                }
+            });
+        }
+        for (auto& thread : threads) {
+            thread.join();
+        }
+
+        bool all_ok = true;
+        int first_missing = -1;
+        for (int t = 0; t < 4 && all_ok; ++t) {
+            for (int i = 0; i < 64; ++i) {
+                const int key = t * 1000 + i;
+                const auto value = map.get(key);
+                if (!value.has_value() || value.value() != key) {
+                    all_ok = false;
+                    first_missing = key;
+                    break;
+                }
+            }
+        }
+        state.check(all_ok, "small resize repro preserves every inserted key");
+        if (!all_ok) {
+            std::cout << "    first missing key: " << first_missing << "\n";
+        }
+        state.check(map.size() == 256, "small resize repro keeps exact size");
+    }
+
+    {
         std::cout << "\n--- Parallel Gets ---\n";
         LockFreeHashMap<int, int> map(16);
         for (int i = 0; i < 100; ++i) {

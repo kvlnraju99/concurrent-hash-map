@@ -277,16 +277,18 @@ private:
         if (!debug_trace_key(key)) {
             return;
         }
-        Table* current = current_table.load(std::memory_order_acquire);
-        std::fprintf(stderr,
-                     "[lf-count] %s key=%d before=%zu after=%zu current=%p buckets=%zu next=%p\n",
-                     event,
-                     static_cast<int>(key),
-                     before,
-                     after,
-                     static_cast<void*>(current),
-                     current->bucket_count,
-                     static_cast<void*>(current->next_table.load(std::memory_order_acquire)));
+        if constexpr (std::is_integral_v<K>) {
+            Table* current = current_table.load(std::memory_order_acquire);
+            std::fprintf(stderr,
+                         "[lf-count] %s key=%d before=%zu after=%zu current=%p buckets=%zu next=%p\n",
+                         event,
+                         static_cast<int>(key),
+                         before,
+                         after,
+                         static_cast<void*>(current),
+                         current->bucket_count,
+                         static_cast<void*>(current->next_table.load(std::memory_order_acquire)));
+        }
 #else
         (void)event;
         (void)key;
@@ -305,18 +307,20 @@ private:
         if (!debug_trace_key(key)) {
             return;
         }
-        std::fprintf(stderr,
-                     "[lf-op] %s key=%d table=%p buckets=%zu idx=%zu live=%llu state=%u next=%p note=%s size=%zu\n",
-                     event,
-                     static_cast<int>(key),
-                     static_cast<void*>(table),
-                     table->bucket_count,
-                     idx,
-                     static_cast<unsigned long long>(live_matches),
-                     static_cast<unsigned>(bucket_state(table, idx)),
-                     static_cast<void*>(table->next_table.load(std::memory_order_acquire)),
-                     note,
-                     element_count.load(std::memory_order_relaxed));
+        if constexpr (std::is_integral_v<K>) {
+            std::fprintf(stderr,
+                         "[lf-op] %s key=%d table=%p buckets=%zu idx=%zu live=%llu state=%u next=%p note=%s size=%zu\n",
+                         event,
+                         static_cast<int>(key),
+                         static_cast<void*>(table),
+                         table->bucket_count,
+                         idx,
+                         static_cast<unsigned long long>(live_matches),
+                         static_cast<unsigned>(bucket_state(table, idx)),
+                         static_cast<void*>(table->next_table.load(std::memory_order_acquire)),
+                         note,
+                         element_count.load(std::memory_order_relaxed));
+        }
 #else
         (void)event;
         (void)key;

@@ -9,6 +9,7 @@
 
 #include "concurrent_hash_map.h"
 #include "lock_free_hash_map.h"
+#include "lock_free_open_addressing_hash_map.h"
 
 namespace {
 
@@ -88,6 +89,27 @@ double bench_put_lockfree(int num_threads, size_t buckets, int total_ops) {
     return std::chrono::duration<double, std::milli>(end - start).count();
 }
 
+double bench_put_open(int num_threads, size_t buckets, int total_ops) {
+    LockFreeOpenAddressingHashMap<int, int> map(buckets);
+    const int ops_per_thread = total_ops / num_threads;
+    std::vector<std::thread> threads;
+    threads.reserve(num_threads);
+
+    const auto start = std::chrono::high_resolution_clock::now();
+    for (int t = 0; t < num_threads; ++t) {
+        threads.emplace_back([&map, t, ops_per_thread]() {
+            for (int i = 0; i < ops_per_thread; ++i) {
+                (void)map.put(t * ops_per_thread + i, i);
+            }
+        });
+    }
+    for (auto& thread : threads) {
+        thread.join();
+    }
+    const auto end = std::chrono::high_resolution_clock::now();
+    return std::chrono::duration<double, std::milli>(end - start).count();
+}
+
 double bench_get_locked(int num_threads, size_t buckets, int total_ops) {
     ConcurrentHashMap<int, int> map(buckets, 999999.0);
     for (int i = 0; i < total_ops; ++i) {
@@ -126,6 +148,31 @@ double bench_get_lockfree(int num_threads, size_t buckets, int total_ops) {
         threads.emplace_back([&map, t, ops_per_thread]() {
             for (int i = 0; i < ops_per_thread; ++i) {
                 map.get(t * ops_per_thread + i);
+            }
+        });
+    }
+    for (auto& thread : threads) {
+        thread.join();
+    }
+    const auto end = std::chrono::high_resolution_clock::now();
+    return std::chrono::duration<double, std::milli>(end - start).count();
+}
+
+double bench_get_open(int num_threads, size_t buckets, int total_ops) {
+    LockFreeOpenAddressingHashMap<int, int> map(buckets);
+    const int preload_ops = std::min(total_ops, static_cast<int>(buckets / 2));
+    for (int i = 0; i < preload_ops; ++i) {
+        (void)map.put(i, i);
+    }
+    const int ops_per_thread = total_ops / num_threads;
+    std::vector<std::thread> threads;
+    threads.reserve(num_threads);
+
+    const auto start = std::chrono::high_resolution_clock::now();
+    for (int t = 0; t < num_threads; ++t) {
+        threads.emplace_back([&map, t, ops_per_thread, preload_ops]() {
+            for (int i = 0; i < ops_per_thread; ++i) {
+                map.get((t * ops_per_thread + i) % preload_ops);
             }
         });
     }
@@ -200,31 +247,77 @@ double bench_mixed_lockfree(int num_threads, size_t buckets, int total_ops) {
     return std::chrono::duration<double, std::milli>(end - start).count();
 }
 
+double bench_mixed_open(int num_threads, size_t buckets, int total_ops) {
+    LockFreeOpenAddressingHashMap<int, int> map(buckets);
+    const int preload_keys = std::min(50000, static_cast<int>(buckets / 2));
+    for (int i = 0; i < preload_keys; ++i) {
+        (void)map.put(i, i);
+    }
+    const int ops_per_thread = total_ops / num_threads;
+    std::vector<std::thread> threads;
+    threads.reserve(num_threads);
+
+    const auto start = std::chrono::high_resolution_clock::now();
+    for (int t = 0; t < num_threads; ++t) {
+        threads.emplace_back([&map, t, ops_per_thread, preload_keys]() {
+            for (int i = 0; i < ops_per_thread; ++i) {
+                const int key = (t * ops_per_thread + i) % preload_keys;
+                const int op = (t + i) % 3;
+                if (op == 0) {
+                    (void)map.put(key, i);
+                } else if (op == 1) {
+                    map.get(key);
+                } else {
+                    map.remove(key);
+                }
+            }
+        });
+    }
+    for (auto& thread : threads) {
+        thread.join();
+    }
+    const auto end = std::chrono::high_resolution_clock::now();
+    return std::chrono::duration<double, std::milli>(end - start).count();
+}
+
 using BenchFn = double (*)(int, size_t, int);
 
 void compare(const std::string& label,
              BenchFn locked_fn,
-             BenchFn lockfree_fn,
+             BenchFn list_lockfree_fn,
+             BenchFn open_fn,
              const Config& config) {
     std::cout << "\n--- " << label << " (" << config.total_ops << " ops, "
               << config.buckets << " buckets) ---\n";
-    std::cout << "Threads | Locked (ms) | Speedup | Lock-Free (ms) | Speedup | Winner\n";
-    std::cout << "--------|-------------|---------|----------------|---------|--------\n";
+    std::cout << "Threads | Locked (ms) | List-LF (ms) | Open-LF (ms) | Winner\n";
+    std::cout << "--------|-------------|--------------|--------------|--------\n";
 
     const double base_locked = locked_fn(1, config.buckets, config.total_ops);
-    const double base_lockfree = lockfree_fn(1, config.buckets, config.total_ops);
+    const double base_list = list_lockfree_fn(1, config.buckets, config.total_ops);
+    const double base_open = open_fn(1, config.buckets, config.total_ops);
+    (void)base_locked;
+    (void)base_list;
+    (void)base_open;
 
     for (int threads = 1; threads <= config.max_threads; threads *= 2) {
         const double locked =
             (threads == 1) ? base_locked : locked_fn(threads, config.buckets, config.total_ops);
-        const double lockfree =
-            (threads == 1) ? base_lockfree : lockfree_fn(threads, config.buckets, config.total_ops);
-        const double locked_speedup = base_locked / locked;
-        const double lockfree_speedup = base_lockfree / lockfree;
-        const char* winner = (lockfree < locked) ? "Lock-Free" : "Locked";
+        const double list =
+            (threads == 1) ? base_list : list_lockfree_fn(threads, config.buckets, config.total_ops);
+        const double open =
+            (threads == 1) ? base_open : open_fn(threads, config.buckets, config.total_ops);
+        const char* winner = "Locked";
+        double best = locked;
+        if (list < best) {
+            best = list;
+            winner = "List-LF";
+        }
+        if (open < best) {
+            winner = "Open-LF";
+        }
 
-        std::printf("   %2d   | %11.1f | %5.2fx  | %14.1f | %5.2fx  | %s\n",
-                    threads, locked, locked_speedup, lockfree, lockfree_speedup, winner);
+        std::printf("   %2d   | %11.1f | %12.1f | %12.1f | %s\n",
+                    threads, locked, list, open, winner);
     }
 }
 
@@ -234,15 +327,15 @@ int main(int argc, char* argv[]) {
     const Config config = parse_args(argc, argv);
 
     std::cout << "========================================================\n";
-    std::cout << " Benchmark: Lock-Based vs Lock-Free Hash Map\n";
+    std::cout << " Benchmark: Locked vs List-LF vs Open-LF Hash Map\n";
     std::cout << " Max threads: " << config.max_threads << "\n";
     std::cout << " Total ops:   " << config.total_ops << "\n";
     std::cout << " Buckets:     " << config.buckets << "\n";
     std::cout << "========================================================\n";
 
-    compare("PUT", bench_put_locked, bench_put_lockfree, config);
-    compare("GET", bench_get_locked, bench_get_lockfree, config);
-    compare("MIXED", bench_mixed_locked, bench_mixed_lockfree, config);
+    compare("PUT", bench_put_locked, bench_put_lockfree, bench_put_open, config);
+    compare("GET", bench_get_locked, bench_get_lockfree, bench_get_open, config);
+    compare("MIXED", bench_mixed_locked, bench_mixed_lockfree, bench_mixed_open, config);
 
     std::cout << "\n========================================================\n";
     std::cout << " Done.\n";

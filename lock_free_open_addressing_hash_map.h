@@ -157,57 +157,50 @@ public:
             }
 
             if (state == EMPTY) {
-                break;
+                Slot& target = slots[first_reusable];
+                while (true) {
+                    if (try_claim_slot(target, first_reusable_state, key, value)) {
+                        record_probe(put_calls, total_put_probes, max_put_probe, probes);
+                        return true;
+                    }
+
+                    state = target.state.load(std::memory_order_acquire);
+                    if (state == OCCUPIED &&
+                        target.key.load(std::memory_order_acquire) == key) {
+                        target.value.store(value, std::memory_order_release);
+                        record_probe(put_calls, total_put_probes, max_put_probe, probes);
+                        return true;
+                    }
+
+                    if (state == EMPTY || state == DELETED) {
+                        first_reusable_state = state;
+                        continue;
+                    }
+                    break;
+                }
             }
         }
 
-        if (first_reusable == capacity) {
-            record_probe(put_calls, total_put_probes, max_put_probe, probes);
-            failed_puts.fetch_add(1, std::memory_order_relaxed);
-            return false;
-        }
-
-        Slot& target = slots[first_reusable];
-        while (true) {
-            if (try_claim_slot(target, first_reusable_state, key, value)) {
-                record_probe(put_calls, total_put_probes, max_put_probe, probes);
-                return true;
-            }
-
-            uint8_t state = target.state.load(std::memory_order_acquire);
-            if (state == OCCUPIED && target.key.load(std::memory_order_acquire) == key) {
-                target.value.store(value, std::memory_order_release);
-                record_probe(put_calls, total_put_probes, max_put_probe, probes);
-                return true;
-            }
-            if (state == EMPTY || state == DELETED) {
-                first_reusable_state = state;
-                continue;
-            }
-            break;
-        }
-
-        for (size_t step = 0; step < capacity; ++step) {
-            ++probes;
-            Slot& slot = slots[probe_index(key, step)];
-            const uint8_t state = slot.state.load(std::memory_order_acquire);
-
-            if (state == OCCUPIED) {
-                if (slot.key.load(std::memory_order_acquire) == key) {
-                    slot.value.store(value, std::memory_order_release);
+        if (first_reusable != capacity) {
+            Slot& target = slots[first_reusable];
+            while (true) {
+                if (try_claim_slot(target, first_reusable_state, key, value)) {
                     record_probe(put_calls, total_put_probes, max_put_probe, probes);
                     return true;
                 }
-                continue;
-            }
 
-            if (state == WRITING) {
-                continue;
-            }
-
-            if (try_claim_slot(slot, state, key, value)) {
-                record_probe(put_calls, total_put_probes, max_put_probe, probes);
-                return true;
+                const uint8_t state = target.state.load(std::memory_order_acquire);
+                if (state == OCCUPIED &&
+                    target.key.load(std::memory_order_acquire) == key) {
+                    target.value.store(value, std::memory_order_release);
+                    record_probe(put_calls, total_put_probes, max_put_probe, probes);
+                    return true;
+                }
+                if (state == EMPTY || state == DELETED) {
+                    first_reusable_state = state;
+                    continue;
+                }
+                break;
             }
         }
 

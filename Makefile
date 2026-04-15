@@ -7,10 +7,10 @@ SWEEP    = bucket_sweep
 
 all: $(TESTS) $(BENCH) $(PROFILE) $(SWEEP)
 
-$(TESTS): tests.cpp concurrent_hash_map.h lock_free_hash_map.h
+$(TESTS): tests.cpp concurrent_hash_map.h lock_free_hash_map.h lock_free_open_addressing_hash_map.h
 	$(CXX) $(CXXFLAGS) -O2 -o $(TESTS) tests.cpp
 
-$(BENCH): benchmark.cpp concurrent_hash_map.h lock_free_hash_map.h
+$(BENCH): benchmark.cpp concurrent_hash_map.h lock_free_hash_map.h lock_free_open_addressing_hash_map.h
 	$(CXX) $(CXXFLAGS) -O2 -o $(BENCH) benchmark.cpp
 
 $(PROFILE): profile.cpp lock_free_hash_map.h

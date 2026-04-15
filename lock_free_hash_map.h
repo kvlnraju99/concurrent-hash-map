@@ -355,17 +355,6 @@ private:
         return result;
     }
 
-    bool has_live_key_in_bucket(Table* table, size_t idx, const K& key) const {
-        Node* curr = table->buckets[idx].head.load(std::memory_order_acquire);
-        while (curr) {
-            if (!curr->deleted.load(std::memory_order_acquire) && curr->key == key) {
-                return true;
-            }
-            curr = curr->next.load(std::memory_order_acquire);
-        }
-        return false;
-    }
-
     void copy_bucket_live_nodes(Table* source, size_t idx, Table* target) {
         Node* curr = source->buckets[idx].head.load(std::memory_order_acquire);
         while (curr) {
@@ -547,8 +536,6 @@ public:
 
         while (true) {
             Table* table = ensure_current_target(key);
-            const size_t idx = get_bucket_index(key, table->bucket_count);
-            const bool existed_before = has_live_key_in_bucket(table, idx, key);
             PutProfileSnapshot sample;
             if (profiling_enabled) {
                 sample.put_calls = 1;
@@ -575,12 +562,13 @@ public:
             // into the destination table before returning.
             Table* next = table->next_table.load(std::memory_order_acquire);
             if (next != nullptr) {
+                const size_t idx = get_bucket_index(key, table->bucket_count);
                 help_migrate_bucket(table, idx);
                 (void)insert_or_update(next, key, value, nullptr);
                 debug_log("mirror-insert", next, next->bucket_count, idx, 0);
             }
 
-            if (result == PutResult::inserted && !existed_before) {
+            if (result == PutResult::inserted) {
                 const auto bookkeeping_start = profiling_enabled ? ProfileClock::now() : ProfileClock::time_point{};
                 element_count.fetch_add(1, std::memory_order_relaxed);
                 if (profiling_enabled) {

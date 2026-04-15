@@ -11,6 +11,7 @@
 #include <string>
 #include <thread>
 #include <type_traits>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -520,6 +521,19 @@ private:
         }
     }
 
+    Table* drain_resize_chain() {
+        while (true) {
+            Table* table = current_table.load(std::memory_order_acquire);
+            Table* next = table->next_table.load(std::memory_order_acquire);
+            if (next == nullptr) {
+                return table;
+            }
+            for (size_t idx = 0; idx < table->bucket_count; ++idx) {
+                help_migrate_bucket(table, idx);
+            }
+        }
+    }
+
     std::optional<V> get_from_table(Table* table, const K& key) const {
         const size_t idx = get_bucket_index(key, table->bucket_count);
         std::atomic<Node*>* link = &table->buckets[idx].head;
@@ -677,7 +691,19 @@ public:
     }
 
     size_t size() const {
-        return element_count.load(std::memory_order_relaxed);
+        auto* self = const_cast<LockFreeHashMap*>(this);
+        Table* table = self->drain_resize_chain();
+        std::unordered_set<K> live_keys;
+        for (size_t i = 0; i < table->bucket_count; ++i) {
+            Node* curr = table->buckets[i].head.load(std::memory_order_acquire);
+            while (curr) {
+                if (!curr->deleted.load(std::memory_order_acquire)) {
+                    live_keys.insert(curr->key);
+                }
+                curr = curr->next.load(std::memory_order_acquire);
+            }
+        }
+        return live_keys.size();
     }
 
     size_t get_bucket_count() const {

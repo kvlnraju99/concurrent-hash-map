@@ -8,6 +8,10 @@
 
 const int TOTAL_OPS = 800000;
 
+size_t recommended_lockfree_buckets() {
+    return 524288;
+}
+
 // ─── Generic benchmark runners ─────────────────────────────────────
 
 // PUT benchmark for lock-based map.
@@ -179,7 +183,7 @@ int main(int argc, char* argv[]) {
     std::cout << " Total ops:   " << TOTAL_OPS << "\n";
     std::cout << "========================================================\n";
 
-    size_t buckets = 100000;  // enough buckets so chains stay short
+    size_t buckets = recommended_lockfree_buckets();
     compare("PUT",   bench_put_locked,   bench_put_lockfree,   buckets, max_threads);
     compare("GET",   bench_get_locked,   bench_get_lockfree,   buckets, max_threads);
     compare("MIXED", bench_mixed_locked, bench_mixed_lockfree, buckets, max_threads);

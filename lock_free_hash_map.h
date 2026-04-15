@@ -2,10 +2,13 @@
 #define LOCK_FREE_HASH_MAP_H
 
 #include <atomic>
+#include <cstddef>
 #include <chrono>
-#include <functional>
 #include <cstdint>
+#include <functional>
 #include <memory>
+#include <mutex>
+#include <new>
 #include <optional>
 #include <string>
 #include <utility>
@@ -18,11 +21,13 @@
 //   - GET: just walk the list (reads are naturally safe).
 //   - REMOVE: mark the node as deleted using an atomic flag.
 //
-// No mutex is used anywhere. Threads never block or wait.
+// The fast path uses only atomics. A small mutex is used only when the
+// chunk allocator needs to grow its backing storage.
 //
 // Known limitations (acceptable for a course project):
 //   - No resizing (fixed bucket count).
-//   - Deleted nodes stay in memory (no reclamation).
+//   - Deleted nodes are unlinked eagerly but memory is still reclaimed
+//     only when the map is destroyed.
 //   - Concurrent puts of the same NEW key may create duplicates
 //     (last write wins on read, so behavior is still correct).
 
@@ -89,10 +94,33 @@ private:
         Bucket() : head(nullptr) {}
     };
 
+    struct NodeChunk {
+        std::unique_ptr<std::byte[]> storage;
+        std::atomic<size_t> next_index;
+        size_t capacity;
+        NodeChunk* next;
+
+        explicit NodeChunk(size_t chunk_capacity)
+            : storage(std::make_unique<std::byte[]>(sizeof(Node) * chunk_capacity)),
+              next_index(0),
+              capacity(chunk_capacity),
+              next(nullptr) {
+        }
+
+        Node* slot(size_t index) const {
+            return std::launder(
+                reinterpret_cast<Node*>(storage.get() + index * sizeof(Node)));
+        }
+    };
+
     std::unique_ptr<Bucket[]> buckets;  // array of aligned bucket head pointers
     size_t bucket_count;
     std::atomic<size_t> element_count;
     std::unique_ptr<PutProfiler> put_profiler;
+    size_t node_chunk_capacity;
+    std::atomic<NodeChunk*> active_chunk;
+    NodeChunk* chunk_list_head;
+    mutable std::mutex chunk_mutex;
 
     static uint64_t elapsed_ns(const ProfileClock::time_point& start,
                                const ProfileClock::time_point& end) {
@@ -133,6 +161,56 @@ private:
         update_max(put_profiler->max_chain_length_seen, sample.max_chain_length_seen);
     }
 
+    NodeChunk* ensure_chunk() {
+        NodeChunk* chunk = active_chunk.load(std::memory_order_acquire);
+        if (chunk != nullptr) {
+            return chunk;
+        }
+
+        std::lock_guard<std::mutex> lock(chunk_mutex);
+        chunk = active_chunk.load(std::memory_order_acquire);
+        if (chunk == nullptr) {
+            chunk = new NodeChunk(node_chunk_capacity);
+            chunk->next = chunk_list_head;
+            chunk_list_head = chunk;
+            active_chunk.store(chunk, std::memory_order_release);
+        }
+        return chunk;
+    }
+
+    Node* allocate_node(const K& key, const V& value) {
+        while (true) {
+            NodeChunk* chunk = ensure_chunk();
+            size_t index = chunk->next_index.load(std::memory_order_relaxed);
+
+            while (index < chunk->capacity) {
+                if (chunk->next_index.compare_exchange_weak(
+                        index, index + 1,
+                        std::memory_order_relaxed,
+                        std::memory_order_relaxed)) {
+                    return new (chunk->slot(index)) Node(key, value);
+                }
+            }
+
+            std::lock_guard<std::mutex> lock(chunk_mutex);
+            NodeChunk* current = active_chunk.load(std::memory_order_acquire);
+            if (current == chunk &&
+                current->next_index.load(std::memory_order_relaxed) >= current->capacity) {
+                NodeChunk* next_chunk = new NodeChunk(node_chunk_capacity);
+                next_chunk->next = chunk_list_head;
+                chunk_list_head = next_chunk;
+                active_chunk.store(next_chunk, std::memory_order_release);
+            }
+        }
+    }
+
+    static bool unlink_deleted_node(std::atomic<Node*>* link, Node* curr, Node* next) {
+        return link->compare_exchange_strong(
+            curr, next,
+            std::memory_order_release,
+            std::memory_order_acquire);
+    }
+
     // Pick the bucket for a given key.
     size_t get_bucket_index(const K& key) const {
         return std::hash<K>{}(key) % bucket_count;
@@ -140,21 +218,29 @@ private:
 
 public:
 
-    explicit LockFreeHashMap(size_t num_buckets = 16, bool enable_put_profiling = false)
+    explicit LockFreeHashMap(size_t num_buckets = 16,
+                             bool enable_put_profiling = false,
+                             size_t node_chunk_size = 4096)
         : buckets(new Bucket[num_buckets]),
           bucket_count(num_buckets), element_count(0),
-          put_profiler(enable_put_profiling ? std::make_unique<PutProfiler>() : nullptr) {
+          put_profiler(enable_put_profiling ? std::make_unique<PutProfiler>() : nullptr),
+          node_chunk_capacity(node_chunk_size == 0 ? 1 : node_chunk_size),
+          active_chunk(nullptr),
+          chunk_list_head(nullptr) {
     }
 
     // Clean up all nodes.
     ~LockFreeHashMap() {
-        for (size_t i = 0; i < bucket_count; i++) {
-            Node* curr = buckets[i].head.load(std::memory_order_relaxed);
-            while (curr) {
-                Node* next = curr->next.load(std::memory_order_relaxed);
-                delete curr;
-                curr = next;
+        NodeChunk* chunk = chunk_list_head;
+        while (chunk) {
+            const size_t constructed =
+                std::min(chunk->next_index.load(std::memory_order_relaxed), chunk->capacity);
+            for (size_t i = 0; i < constructed; ++i) {
+                chunk->slot(i)->~Node();
             }
+            NodeChunk* next = chunk->next;
+            delete chunk;
+            chunk = next;
         }
     }
 
@@ -174,11 +260,22 @@ public:
         // Walk the list to see if the key already exists.
         const auto traversal_start =
             profiling_enabled ? ProfileClock::now() : ProfileClock::time_point{};
-        Node* curr = buckets[idx].head.load(std::memory_order_acquire);
+        std::atomic<Node*>* link = &buckets[idx].head;
+        Node* curr = link->load(std::memory_order_acquire);
         uint64_t chain_length = 0;
         while (curr) {
+            Node* next = curr->next.load(std::memory_order_acquire);
+            if (curr->deleted.load(std::memory_order_acquire)) {
+                if (unlink_deleted_node(link, curr, next)) {
+                    curr = next;
+                    continue;
+                }
+                curr = link->load(std::memory_order_acquire);
+                continue;
+            }
+
             ++chain_length;
-            if (!curr->deleted.load(std::memory_order_acquire) && curr->key == key) {
+            if (curr->key == key) {
                 // Key found — update the value in place.
                 curr->value = value;
                 if (profiling_enabled) {
@@ -192,7 +289,8 @@ public:
                 }
                 return;
             }
-            curr = curr->next.load(std::memory_order_acquire);
+            link = &curr->next;
+            curr = next;
         }
         if (profiling_enabled) {
             sample.traversal_nodes = chain_length;
@@ -203,7 +301,7 @@ public:
         // Key not found — create a new node and prepend it using CAS.
         const auto allocation_start =
             profiling_enabled ? ProfileClock::now() : ProfileClock::time_point{};
-        Node* new_node = new Node(key, value);
+        Node* new_node = allocate_node(key, value);
         if (profiling_enabled) {
             sample.allocation_ns = elapsed_ns(allocation_start, ProfileClock::now());
         }
@@ -249,12 +347,24 @@ public:
         size_t idx = get_bucket_index(key);
 
         // Walk the list, reading atomic pointers.
-        Node* curr = buckets[idx].head.load(std::memory_order_acquire);
+        std::atomic<Node*>* link = const_cast<std::atomic<Node*>*>(&buckets[idx].head);
+        Node* curr = link->load(std::memory_order_acquire);
         while (curr) {
-            if (!curr->deleted.load(std::memory_order_acquire) && curr->key == key) {
+            Node* next = curr->next.load(std::memory_order_acquire);
+            if (curr->deleted.load(std::memory_order_acquire)) {
+                if (unlink_deleted_node(link, curr, next)) {
+                    curr = next;
+                    continue;
+                }
+                curr = link->load(std::memory_order_acquire);
+                continue;
+            }
+
+            if (curr->key == key) {
                 return curr->value;
             }
-            curr = curr->next.load(std::memory_order_acquire);
+            link = &curr->next;
+            curr = next;
         }
 
         return std::nullopt;
@@ -265,15 +375,33 @@ public:
     bool remove(const K& key) {
         size_t idx = get_bucket_index(key);
 
-        Node* curr = buckets[idx].head.load(std::memory_order_acquire);
+        std::atomic<Node*>* link = &buckets[idx].head;
+        Node* curr = link->load(std::memory_order_acquire);
         while (curr) {
-            if (!curr->deleted.load(std::memory_order_acquire) && curr->key == key) {
-                // Mark as deleted. Other threads will skip this node.
-                curr->deleted.store(true, std::memory_order_release);
-                element_count.fetch_sub(1, std::memory_order_relaxed);
-                return true;
+            Node* next = curr->next.load(std::memory_order_acquire);
+            if (curr->deleted.load(std::memory_order_acquire)) {
+                if (unlink_deleted_node(link, curr, next)) {
+                    curr = next;
+                    continue;
+                }
+                curr = link->load(std::memory_order_acquire);
+                continue;
             }
-            curr = curr->next.load(std::memory_order_acquire);
+
+            if (curr->key == key) {
+                // Mark as deleted. Other threads will skip this node.
+                bool expected = false;
+                if (curr->deleted.compare_exchange_strong(
+                        expected, true,
+                        std::memory_order_release,
+                        std::memory_order_acquire)) {
+                    element_count.fetch_sub(1, std::memory_order_relaxed);
+                    unlink_deleted_node(link, curr, next);
+                    return true;
+                }
+            }
+            link = &curr->next;
+            curr = next;
         }
 
         return false;

@@ -107,6 +107,7 @@ private:
     struct Table {
         std::unique_ptr<Bucket[]> buckets;
         std::unique_ptr<std::atomic<uint8_t>[]> bucket_state;
+        std::unique_ptr<std::atomic<bool>[]> bucket_write_lock;
         size_t bucket_count;
         std::atomic<Table*> next_table;
         std::atomic<size_t> migrated_buckets;
@@ -114,12 +115,38 @@ private:
         explicit Table(size_t count)
             : buckets(new Bucket[count]),
               bucket_state(new std::atomic<uint8_t>[count]),
+              bucket_write_lock(new std::atomic<bool>[count]),
               bucket_count(count),
               next_table(nullptr),
               migrated_buckets(0) {
             for (size_t i = 0; i < bucket_count; ++i) {
                 bucket_state[i].store(0, std::memory_order_relaxed);
+                bucket_write_lock[i].store(false, std::memory_order_relaxed);
             }
+        }
+    };
+
+    struct BucketWriteGuard {
+        std::atomic<bool>* flag = nullptr;
+
+        BucketWriteGuard() = default;
+        explicit BucketWriteGuard(std::atomic<bool>* f) : flag(f) {}
+        BucketWriteGuard(const BucketWriteGuard&) = delete;
+        BucketWriteGuard& operator=(const BucketWriteGuard&) = delete;
+        BucketWriteGuard(BucketWriteGuard&& other) noexcept : flag(other.flag) {
+            other.flag = nullptr;
+        }
+        ~BucketWriteGuard() {
+            release();
+        }
+        void release() {
+            if (flag != nullptr) {
+                flag->store(false, std::memory_order_release);
+                flag = nullptr;
+            }
+        }
+        explicit operator bool() const {
+            return flag != nullptr;
         }
     };
 
@@ -192,6 +219,30 @@ private:
         }
     }
 
+    BucketWriteGuard acquire_bucket_write(Table* table, size_t idx, bool allow_frozen = false) {
+        while (true) {
+            if (!allow_frozen &&
+                table->next_table.load(std::memory_order_acquire) != nullptr &&
+                bucket_state(table, idx) != 0) {
+                return BucketWriteGuard();
+            }
+            bool expected = false;
+            if (table->bucket_write_lock[idx].compare_exchange_weak(
+                    expected, true,
+                    std::memory_order_acq_rel,
+                    std::memory_order_acquire)) {
+                if (!allow_frozen &&
+                    table->next_table.load(std::memory_order_acquire) != nullptr &&
+                    bucket_state(table, idx) != 0) {
+                    table->bucket_write_lock[idx].store(false, std::memory_order_release);
+                    return BucketWriteGuard();
+                }
+                return BucketWriteGuard(&table->bucket_write_lock[idx]);
+            }
+            std::this_thread::yield();
+        }
+    }
+
     static void debug_log(const char* event,
                           const void* table,
                           size_t bucket_count,
@@ -231,8 +282,8 @@ private:
                                          const K& key,
                                          const V& value,
                                          PutProfileSnapshot* sample) {
-        if (table->next_table.load(std::memory_order_acquire) != nullptr &&
-            bucket_state(table, idx) != 0) {
+        BucketWriteGuard guard = acquire_bucket_write(table, idx);
+        if (!guard) {
             debug_log("retry-closed-bucket", table, table->bucket_count, idx, 0);
             return PutResult::retry;
         }
@@ -253,11 +304,6 @@ private:
 
             ++chain_length;
             if (curr->key == key) {
-                if (table->next_table.load(std::memory_order_acquire) != nullptr &&
-                    bucket_state(table, idx) != 0) {
-                    debug_log("retry-update-closed-bucket", table, table->bucket_count, idx, 0);
-                    return PutResult::retry;
-                }
                 curr->value = value;
                 if (sample != nullptr) {
                     sample->updated_existing = 1;
@@ -275,12 +321,6 @@ private:
             sample->max_chain_length_seen = chain_length;
         }
 
-        if (table->next_table.load(std::memory_order_acquire) != nullptr &&
-            bucket_state(table, idx) != 0) {
-            debug_log("retry-before-insert", table, table->bucket_count, idx, 0);
-            return PutResult::retry;
-        }
-
         const auto allocation_start = sample != nullptr ? ProfileClock::now() : ProfileClock::time_point{};
         Node* new_node = new Node(key, value);
         if (sample != nullptr) {
@@ -288,28 +328,12 @@ private:
         }
 
         Node* head = bucket.head.load(std::memory_order_acquire);
-        const auto cas_start = sample != nullptr ? ProfileClock::now() : ProfileClock::time_point{};
-        bool inserted = false;
-        while (!inserted) {
-            if (table->next_table.load(std::memory_order_acquire) != nullptr &&
-                bucket_state(table, idx) != 0) {
-                delete new_node;
-                debug_log("retry-during-cas", table, table->bucket_count, idx, 0);
-                return PutResult::retry;
-            }
-            if (sample != nullptr) {
-                ++sample->cas_attempts;
-            }
-            new_node->next.store(head, std::memory_order_relaxed);
-            inserted = bucket.head.compare_exchange_weak(head, new_node,
-                                                         std::memory_order_release,
-                                                         std::memory_order_acquire);
-            if (sample != nullptr && !inserted) {
-                ++sample->cas_failures;
-            }
-        }
         if (sample != nullptr) {
-            sample->cas_ns += elapsed_ns(cas_start, ProfileClock::now());
+            ++sample->cas_attempts;
+        }
+        new_node->next.store(head, std::memory_order_relaxed);
+        bucket.head.store(new_node, std::memory_order_release);
+        if (sample != nullptr) {
             sample->successful_inserts = 1;
         }
         return PutResult::inserted;
@@ -355,6 +379,11 @@ private:
                                                              std::memory_order_acq_rel,
                                                              std::memory_order_acquire)) {
             debug_log("migrate-begin", table, table->bucket_count, idx, 0);
+            BucketWriteGuard guard = acquire_bucket_write(table, idx, true);
+            if (!guard) {
+                table->bucket_state[idx].store(0, std::memory_order_release);
+                return;
+            }
             copy_bucket_live_nodes(table, idx, next);
             table->bucket_state[idx].store(2, std::memory_order_release);
             const size_t migrated =
@@ -444,6 +473,10 @@ private:
 
     bool remove_from_table(Table* table, const K& key) {
         const size_t idx = get_bucket_index(key, table->bucket_count);
+        BucketWriteGuard guard = acquire_bucket_write(table, idx);
+        if (!guard) {
+            return false;
+        }
         std::atomic<Node*>* link = &table->buckets[idx].head;
         Node* curr = link->load(std::memory_order_acquire);
         while (curr) {

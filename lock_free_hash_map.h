@@ -48,6 +48,14 @@ public:
         uint64_t cas_failures = 0;
     };
 
+    struct BucketStatsSnapshot {
+        uint64_t total_nodes = 0;
+        uint64_t live_nodes = 0;
+        uint64_t deleted_nodes = 0;
+        uint64_t non_empty_buckets = 0;
+        uint64_t max_chain_length = 0;
+    };
+
 private:
     struct PutProfiler {
         std::atomic<uint64_t> put_calls{0};
@@ -329,6 +337,35 @@ public:
             put_profiler->max_chain_length_seen.load(std::memory_order_relaxed);
         snapshot.cas_attempts = put_profiler->cas_attempts.load(std::memory_order_relaxed);
         snapshot.cas_failures = put_profiler->cas_failures.load(std::memory_order_relaxed);
+        return snapshot;
+    }
+
+    BucketStatsSnapshot get_bucket_stats() const {
+        BucketStatsSnapshot snapshot;
+
+        for (size_t i = 0; i < bucket_count; ++i) {
+            uint64_t chain_length = 0;
+            Node* curr = buckets[i].head.load(std::memory_order_acquire);
+            if (curr != nullptr) {
+                ++snapshot.non_empty_buckets;
+            }
+
+            while (curr) {
+                ++snapshot.total_nodes;
+                ++chain_length;
+                if (curr->deleted.load(std::memory_order_acquire)) {
+                    ++snapshot.deleted_nodes;
+                } else {
+                    ++snapshot.live_nodes;
+                }
+                curr = curr->next.load(std::memory_order_acquire);
+            }
+
+            if (chain_length > snapshot.max_chain_length) {
+                snapshot.max_chain_length = chain_length;
+            }
+        }
+
         return snapshot;
     }
 };

@@ -79,7 +79,8 @@ private:
     mutable std::shared_mutex table_mutex;
 
     size_t probe_index(const K& key, size_t step) const {
-        return (std::hash<K>{}(key) + step) % capacity;
+        const size_t hash = std::hash<K>{}(key) % capacity;
+        return (hash + step * step) % capacity;
     }
 
     static void update_max(std::atomic<uint64_t>& target, uint64_t candidate) {

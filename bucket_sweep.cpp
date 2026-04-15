@@ -55,8 +55,9 @@ double run_parallel_phase(int num_threads, Fn&& fn) {
     return std::chrono::duration<double, std::milli>(end - start).count();
 }
 
+template <bool EnablePutProfiling>
 SweepResult run_sweep_case(size_t buckets, int num_threads, int ops_per_thread) {
-    LockFreeHashMap<int, int> map(buckets, true);
+    LockFreeHashMap<int, int> map(buckets, EnablePutProfiling);
     const uint64_t total_keys = static_cast<uint64_t>(num_threads) * ops_per_thread;
 
     const double put_ms = run_parallel_phase(num_threads, [&](int thread_id) {
@@ -114,15 +115,17 @@ SweepResult run_sweep_case(size_t buckets, int num_threads, int ops_per_thread) 
     result.get_mops = total_ops / (get_ms * 1000.0);
     result.remove_mops = total_ops / (remove_ms * 1000.0);
     result.miss_get_mops = total_ops / (miss_get_ms * 1000.0);
-    result.put_traversal_ns = put_profile.traversal_ns / total_ops;
-    result.put_allocation_ns = put_profile.allocation_ns / total_ops;
-    result.put_cas_ns = put_profile.cas_ns / total_ops;
-    result.put_cas_failures = put_profile.cas_failures / total_ops;
+    if constexpr (EnablePutProfiling) {
+        result.put_traversal_ns = put_profile.traversal_ns / total_ops;
+        result.put_allocation_ns = put_profile.allocation_ns / total_ops;
+        result.put_cas_ns = put_profile.cas_ns / total_ops;
+        result.put_cas_failures = put_profile.cas_failures / total_ops;
+    }
     result.deleted_nodes_after_remove = after_remove.deleted_nodes;
     return result;
 }
 
-void print_results(const std::vector<SweepResult>& results) {
+void print_results(const std::vector<SweepResult>& results, bool include_put_profile) {
     std::cout << "\nBuckets      Load    AvgChain    MaxChain      PUT ns      GET ns      DEL ns"
                  "   MISS ns    PUT Mops    GET Mops    DEL Mops   MISS Mops\n";
     std::cout << "----------------------------------------------------------------------------------------------------------------\n";
@@ -143,18 +146,30 @@ void print_results(const std::vector<SweepResult>& results) {
                   << "\n";
     }
 
-    std::cout << "\nPUT internals (avg per insert)\n";
-    std::cout << "Buckets      Traverse ns   Alloc ns     CAS ns   CAS fail/op   Deleted nodes after remove\n";
-    std::cout << "--------------------------------------------------------------------------------------------\n";
+    if (include_put_profile) {
+        std::cout << "\nPUT internals (avg per insert)\n";
+        std::cout << "Buckets      Traverse ns   Alloc ns     CAS ns   CAS fail/op   Deleted nodes after remove\n";
+        std::cout << "--------------------------------------------------------------------------------------------\n";
 
-    for (const auto& result : results) {
-        std::cout << std::setw(7) << result.buckets
-                  << std::setw(16) << std::fixed << std::setprecision(2) << result.put_traversal_ns
-                  << std::setw(12) << result.put_allocation_ns
-                  << std::setw(11) << result.put_cas_ns
-                  << std::setw(14) << result.put_cas_failures
-                  << std::setw(28) << result.deleted_nodes_after_remove
-                  << "\n";
+        for (const auto& result : results) {
+            std::cout << std::setw(7) << result.buckets
+                      << std::setw(16) << std::fixed << std::setprecision(2) << result.put_traversal_ns
+                      << std::setw(12) << result.put_allocation_ns
+                      << std::setw(11) << result.put_cas_ns
+                      << std::setw(14) << result.put_cas_failures
+                      << std::setw(28) << result.deleted_nodes_after_remove
+                      << "\n";
+        }
+    } else {
+        std::cout << "\nDeleted nodes after remove\n";
+        std::cout << "Buckets      Deleted nodes\n";
+        std::cout << "--------------------------\n";
+
+        for (const auto& result : results) {
+            std::cout << std::setw(7) << result.buckets
+                      << std::setw(19) << result.deleted_nodes_after_remove
+                      << "\n";
+        }
     }
 }
 
@@ -173,10 +188,12 @@ int main(int argc, char* argv[]) {
     if (argc >= 3) {
         ops_per_thread = std::max(1, std::atoi(argv[2]));
     }
+    bool raw_mode = (argc >= 4 && std::string(argv[3]) == "--raw");
 
     const std::vector<size_t> bucket_counts = {16384, 32768, 65536, 131072, 262144, 524288};
 
-    std::cout << "Lock-free bucket sweep\n";
+    std::cout << (raw_mode ? "Lock-free bucket sweep (raw timings)\n"
+                           : "Lock-free bucket sweep\n");
     std::cout << "threads=" << num_threads
               << ", ops/thread=" << ops_per_thread
               << ", total unique keys=" << static_cast<uint64_t>(num_threads) * ops_per_thread
@@ -187,9 +204,13 @@ int main(int argc, char* argv[]) {
 
     for (size_t buckets : bucket_counts) {
         std::cout << "running buckets=" << buckets << "...\n";
-        results.push_back(run_sweep_case(buckets, num_threads, ops_per_thread));
+        if (raw_mode) {
+            results.push_back(run_sweep_case<false>(buckets, num_threads, ops_per_thread));
+        } else {
+            results.push_back(run_sweep_case<true>(buckets, num_threads, ops_per_thread));
+        }
     }
 
-    print_results(results);
+    print_results(results, !raw_mode);
     return 0;
 }

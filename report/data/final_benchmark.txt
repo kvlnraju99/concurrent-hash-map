@@ -1,0 +1,36 @@
+========================================================
+ Concurrent Hash Map Benchmark
+ Variants: locked, lock-free chaining, dynamic resize, open addressing
+ Threads:  up to 8
+ Ops:      800000
+ Buckets:  131072
+ Key space used in each run: 32768
+========================================================
+
+--- PUT ---
+Threads | Locked | LockFree | Resize-LF | OpenAddr | Winner
+--------|--------|----------|-----------|----------|--------
+      1 |  134.9 |     37.3 |      61.5 |     71.8 | LockFree
+      2 |  267.0 |     32.0 |      44.9 |    401.5 | LockFree
+      4 |  293.7 |     36.6 |      45.6 |    507.8 | LockFree
+      8 |  309.6 |     43.1 |      54.5 |    597.9 | LockFree
+
+--- GET ---
+Threads | Locked | LockFree | Resize-LF | OpenAddr | Winner
+--------|--------|----------|-----------|----------|--------
+      1 |  118.4 |     22.0 |      24.3 |     89.0 | LockFree
+      2 |  291.7 |     11.7 |      12.7 |    348.2 | LockFree
+      4 |  293.5 |      6.5 |       6.8 |    275.3 | LockFree
+      8 |  394.0 |      4.4 |       4.5 |    307.0 | LockFree
+
+--- MIXED ---
+Threads | Locked | LockFree | Resize-LF | OpenAddr | Winner
+--------|--------|----------|-----------|----------|--------
+      1 |  182.9 |     94.3 |     110.9 |    270.1 | LockFree
+      2 |  375.3 |    167.8 |     170.5 |    428.1 | LockFree
+      4 |  379.6 |    145.6 |     139.4 |    551.8 | Resize-LF
+      8 |  425.4 |     74.1 |     110.1 |    535.0 | LockFree
+
+========================================================
+Done.
+========================================================

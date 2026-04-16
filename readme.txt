@@ -8,6 +8,7 @@ Files to use:
 - lock_free_open_addressing_hash_map.h
 - tests.cpp
 - benchmark.cpp
+- scripts/capture_benchmark_results.py
 - Makefile
 - report/report.docx
 
@@ -26,6 +27,10 @@ Run tests for one implementation:
 Run benchmark:
 ./benchmark --threads 8 --ops 100000 --buckets 131072
 
+Capture final benchmark data for the report:
+python3 scripts/capture_benchmark_results.py --threads 8 --ops 800000 --buckets 131072
+
 Notes:
 - The benchmark compares all four implementations in one executable.
 - The lock-free open-addressing implementation is fixed-size, so the benchmark keeps the key space below capacity.
+- The capture script saves raw output, CSV, and JSON under report/data/.

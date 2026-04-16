@@ -1,8 +1,7 @@
-# Compiled binaries
 hash_map_test
 benchmark
-bucket_sweep
-profile_runner
-
-# OS files
+.variant_worktrees/
+results/
+scripts/__pycache__/
+.mplconfig/
 .DS_Store

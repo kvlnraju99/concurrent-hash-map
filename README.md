@@ -1,24 +1,19 @@
-# Concurrent Hash Map
+# Concurrent Hash Map Project
 
-This repository contains two C++ hash map implementations:
+This submission keeps all four implementations in one branch:
 
-- `ConcurrentHashMap` in `/Users/kvlnraju/College/courses/semester-4/multi-core/project/concurrent-hash-map/concurrent_hash_map.h`
-  - bucket-level locking
-  - dynamic resizing
-- `LockFreeHashMap` in `/Users/kvlnraju/College/courses/semester-4/multi-core/project/concurrent-hash-map/lock_free_hash_map.h`
-  - fixed bucket count
-  - lock-free insert/get/remove traversal with eager unlinking of deleted nodes
-  - optional software profiling for `put()`
+- `concurrent_hash_map.h` - lock-based hash map with dynamic resizing
+- `lock_free_hash_map.h` - fixed-size lock-free chaining hash map
+- `lock_free_dynamic_resize_hash_map.h` - lock-free chaining hash map with cooperative resizing
+- `lock_free_open_addressing_hash_map.h` - open-addressing experiment
 
-## Files
+Main files:
 
-- `tests.cpp` - correctness tests for locked and lock-free maps
-- `benchmark.cpp` - side-by-side throughput benchmark
-- `profile.cpp` - lock-free `put()` micro-profiler
-- `bucket_sweep.cpp` - bucket-count sweep for `put/get/remove/miss`
-- `scripts/variant_sweep.py` - cross-branch sweep for all four major map variants
-- `scripts/extended_experiments.py` - focused follow-up experiments for workload mix, contention, and resizing
-- `Makefile` - build and run targets
+- `tests.cpp` - correctness tests for all four implementations
+- `benchmark.cpp` - throughput benchmark for all four implementations
+- `Makefile` - build targets
+- `readme.txt` - quick compile and run instructions
+- `report/report.docx` - final report
 
 ## Build
 
@@ -26,84 +21,31 @@ This repository contains two C++ hash map implementations:
 make
 ```
 
-## Run
-
-Tests:
+## Run tests
 
 ```bash
 ./hash_map_test
+```
+
+Run one implementation only:
+
+```bash
 ./hash_map_test locked
 ./hash_map_test lockfree
+./hash_map_test resize
+./hash_map_test open
 ```
 
-Benchmark:
+## Run benchmark
 
 ```bash
-./benchmark --threads 64 --ops 800000 --buckets 524288
+./benchmark --threads 8 --ops 100000 --buckets 131072
 ```
 
-PUT micro-profile:
+The benchmark keeps the active key space at `min(ops, buckets / 4)` so the open-addressing implementation stays below capacity.
+
+## Clean binaries
 
 ```bash
-./profile_runner --threads 64 --ops-per-thread 5000 --single-bucket-ops 1000 --wide-buckets 131072 --hot-key-space 64
-```
-
-Bucket sweep:
-
-```bash
-./bucket_sweep --threads 64 --ops-per-thread 5000 --raw
-./bucket_sweep --threads 64 --ops-per-thread 5000 --buckets 32768,65536,131072,262144
-```
-
-Cross-variant sweep:
-
-```bash
-python3 ./scripts/variant_sweep.py
-```
-
-This creates two CSV files under `/Users/kvlnraju/College/courses/semester-4/multi-core/project/concurrent-hash-map/results`:
-
-- `variant_sweep_raw.csv` - every run
-- `variant_sweep_summary.csv` - median/mean/best per scenario
-
-Default matrix:
-
-- variants: locked dynamic, fixed-size lock-free chaining, dynamic-resizing lock-free chaining, open-addressing experiment
-- workloads: `put`, `get`, `mixed`
-- threads: `1,2,4,8,16`
-- buckets: `65536,262144,1048576`
-- open-addressing-safe load: `key_space = buckets * 0.25`
-
-Focused follow-up experiments:
-
-```bash
-python3 ./scripts/extended_experiments.py
-```
-
-This creates additional CSV files under `/Users/kvlnraju/College/courses/semester-4/multi-core/project/concurrent-hash-map/results`:
-
-- `workload_mix_raw.csv` / `workload_mix_summary.csv`
-- `contention_sweep_raw.csv` / `contention_sweep_summary.csv`
-- `resize_focus_raw.csv` / `resize_focus_summary.csv`
-
-These experiments target three report questions:
-
-- workload mix: how the variants behave under read-heavy, balanced, and write-heavy traffic
-- contention sweep: how performance changes when many threads fight over the same key space
-- resize focus: whether dynamic resizing helps when the table starts small and must grow
-
-## Make targets
-
-```bash
-make test
-make bench
-make profile
-make sweep
 make clean
 ```
-
-## Notes
-
-- The lock-free map does not implement dynamic resizing.
-- The lock-free profiler is software-level instrumentation, not hardware counter profiling.
-- The single-bucket profiling scenario is intentionally worst-case; keep `--single-bucket-ops` smaller for quick runs.

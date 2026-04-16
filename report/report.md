@@ -189,68 +189,70 @@ The dynamic-resizing branch was only included in the final comparison after repe
 
 ### 1. Main result from the full benchmark sweep
 
-The broadest conclusion from the project is simple: the two chaining-based lock-free designs dominate the lock-based baseline and the open-addressing experiment in most concurrent scenarios.
+The broadest conclusion from the project is simple: the chaining-based lock-free designs dominate the lock-based baseline and the open-addressing experiment in the main benchmark. The strongest final benchmark was run on the target machine with `800000` operations, `131072` buckets, and up to `8` threads.
 
-The fixed-size lock-free chaining map is the best overall implementation in the project. It wins most `GET` scenarios, most balanced mixed scenarios, and remains strong even when it does not come first. The dynamic-resizing lock-free version is the best writer. It wins most `PUT` scenarios and becomes especially attractive when insertion pressure or write-heavy behavior is important.
+In that final benchmark, the fixed-size lock-free chaining map won every `PUT` case, every `GET` case, and three of the four mixed-workload cases. The dynamic-resizing lock-free version remained competitive and won one mixed-workload point at `4` threads. The lock-based dynamic map was consistently much slower, and the open-addressing experiment was the weakest design overall.
 
-The lock-based dynamic map is useful as a baseline because it is simple and correct, but it is usually much slower once thread count increases. The open-addressing experiment gave useful insight into locality-driven design, but it did not remain competitive in the broad benchmark suite.
+This confirms the overall project result: the fixed-size lock-free chaining map is the best final implementation, while the dynamic-resizing lock-free version is best treated as a useful but more specialized extension.
 
 ### 2. PUT analysis
 
-The `PUT` results show the clearest advantage for the dynamic-resizing lock-free map. In the main sweep, it wins 12 of the 15 `PUT` scenarios. The only `PUT` cases it does not win are the three single-thread cases, where open addressing is slightly faster.
+The final benchmark shows that the fixed-size lock-free chaining map is the strongest insertion design in the final submission branch. It wins at every tested thread count.
 
-The important point is that this is not just a small edge. At `262144` buckets and `16` threads:
+At `131072` buckets and `8` threads:
 
-- lock-free dynamic resize: `14.937 ms`
-- fixed-size lock-free chaining: `19.502 ms`
-- lock-based dynamic: `44.044 ms`
-- open addressing: `48.902 ms`
+- fixed-size lock-free chaining: `43.1 ms`
+- lock-free dynamic resize: `54.5 ms`
+- lock-based dynamic: `309.6 ms`
+- open addressing: `597.9 ms`
 
-The dynamic-resizing lock-free design is therefore the strongest insertion design in the project.
+This is a large gap, not a marginal one. The fixed-size lock-free chaining map is about seven times faster than the lock-based baseline in this `PUT` configuration, and it is still clearly ahead of the dynamic-resizing version.
 
-The likely reason is that writes benefit from both reduced lock contention and relief from fixed-size bucket pressure. A fixed-size table can still perform well, but once insertion pressure grows, the resizing version can absorb that growth more gracefully.
+The likely reason is that the fixed-size lock-free version keeps the write path simple: no bucket locks, no resize coordination, and no probing overhead. The dynamic-resizing version still pays extra bookkeeping cost even when resizing is not the best tradeoff for this specific workload.
 
-![PUT throughput at 262144 buckets](/Users/kvlnraju/College/courses/semester-4/multi-core/project/concurrent-hash-map/report/figures/put_262144.png)
+![PUT throughput at 131072 buckets](/Users/kvlnraju/College/courses/semester-4/multi-core/project/concurrent-hash-map/report/figures/put_131072_final.png)
 
-**Figure 2.** `PUT` throughput at `262144` buckets. The dynamic-resizing lock-free chaining map is the best writer once concurrency becomes significant.
+**Figure 2.** `PUT` throughput in the final benchmark (`800000` operations, `131072` buckets). The fixed-size lock-free chaining map is the strongest writer at every tested thread count.
 
 ### 3. GET analysis
 
 The `GET` workload tells a different story. Here, the fixed-size lock-free chaining design is decisively the best reader. In the main sweep, it wins 13 of the 15 `GET` scenarios.
 
-At `1048576` buckets and `16` threads:
+At `131072` buckets and `8` threads:
 
-- fixed-size lock-free chaining: `8.926 ms`
-- lock-free dynamic resize: `32.292 ms`
-- lock-based dynamic: `462.598 ms`
-- open addressing: `485.266 ms`
+- fixed-size lock-free chaining: `4.4 ms`
+- lock-free dynamic resize: `4.5 ms`
+- lock-based dynamic: `394.0 ms`
+- open addressing: `307.0 ms`
 
-This result is extremely strong. It shows that a simple stable lock-free table with linked-list buckets is better for reads than a more complicated dynamic-resizing design in this project.
+This result is extremely strong. The two chaining-based lock-free designs are effectively tied at the top, but the fixed-size version remains slightly better and clearly simpler.
 
 The interpretation is straightforward. Reads benefit from the simplest possible fast path. The fixed-size version does not need to carry the extra state-management cost that the dynamic-resizing version carries, even after resize correctness has been achieved.
 
-![GET throughput at 262144 buckets](/Users/kvlnraju/College/courses/semester-4/multi-core/project/concurrent-hash-map/report/figures/get_262144.png)
+![GET throughput at 131072 buckets](/Users/kvlnraju/College/courses/semester-4/multi-core/project/concurrent-hash-map/report/figures/get_131072_final.png)
 
-**Figure 3.** `GET` throughput at `262144` buckets. The fixed-size lock-free chaining map gives the strongest and most consistent read throughput.
+**Figure 3.** `GET` throughput in the final benchmark (`800000` operations, `131072` buckets). The fixed-size lock-free chaining map gives the strongest and most consistent read throughput.
 
 ### 4. Mixed-workload analysis
 
 The mixed workload is the most important for selecting a final implementation because it combines inserts, lookups, and removals. This is closer to how a shared concurrent map behaves in a real application.
 
-In the main sweep, the fixed-size lock-free chaining map is the best overall mixed-workload design, although the dynamic-resizing version stays close and wins some of the larger high-thread scenarios.
+In the final benchmark, the fixed-size lock-free chaining map wins the mixed workload at `1`, `2`, and `8` threads, while the dynamic-resizing lock-free version wins slightly at `4` threads.
 
-At `262144` buckets and `16` threads:
+At `131072` buckets and `8` threads:
 
-- fixed-size lock-free chaining: `45.734 ms`
-- lock-free dynamic resize: `46.276 ms`
-- lock-based dynamic: `117.807 ms`
-- open addressing: `201.264 ms`
+- fixed-size lock-free chaining: `74.1 ms`
+- lock-free dynamic resize: `110.1 ms`
+- lock-based dynamic: `425.4 ms`
+- open addressing: `535.0 ms`
 
-This is exactly the kind of result that supports a final design decision. The fixed-size lock-free design is not only good at one special case. It is the most balanced performer when reads and writes coexist.
+At `4` threads, the dynamic-resizing version records `139.4 ms` while the fixed-size lock-free version records `145.6 ms`. That small crossover is useful: it shows that the dynamic-resizing version can still help under some mixed conditions, but it does not overturn the overall result.
 
-![MIXED throughput at 262144 buckets](/Users/kvlnraju/College/courses/semester-4/multi-core/project/concurrent-hash-map/report/figures/mixed_262144.png)
+This is exactly the kind of result that supports a final design decision. The fixed-size lock-free design is not only good at one special case. It is the most balanced performer when reads and writes coexist, while the dynamic-resizing version remains a credible extension rather than the best default choice.
 
-**Figure 4.** `MIXED` throughput at `262144` buckets. The fixed-size lock-free chaining map is the strongest all-around design in the full benchmark sweep.
+![MIXED throughput at 131072 buckets](/Users/kvlnraju/College/courses/semester-4/multi-core/project/concurrent-hash-map/report/figures/mixed_131072_final.png)
+
+**Figure 4.** `MIXED` throughput in the final benchmark (`800000` operations, `131072` buckets). The fixed-size lock-free chaining map is the strongest all-around design, with the dynamic-resizing version winning one mid-range point.
 
 ### 5. Workload-mix experiment
 

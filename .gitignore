@@ -1,5 +1,7 @@
 hash_map_test
 benchmark
+bucket_sweep
+profile_runner
 .variant_worktrees/
 results/
 scripts/__pycache__/

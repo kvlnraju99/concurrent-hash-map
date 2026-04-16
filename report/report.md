@@ -1,7 +1,6 @@
 ---
 title: Concurrent Hash Maps on Multicore Systems
 author: Raju Kanumuri (vk2646)
-date: April 15, 2026
 ---
 
 ## Abstract
@@ -117,14 +116,12 @@ That definition of success matches the practical use case of a concurrent hash m
 
 All code was written in C++17 and compiled with `g++` using `-O2` and `-pthread`. The project was built and tested in the NYU CIMS Linux environment because the course explicitly requires the final project to work on those machines.
 
-The repository contains several tools:
+The final submission contains two main executables:
 
-- `hash_map_test` for correctness and concurrency regression testing
-- `benchmark` for a broad side-by-side throughput comparison
-- `profile_runner` for software-level profiling of the lock-free `put()` path
-- `bucket_sweep` for evaluating the effect of bucket count and load
-- `scripts/variant_sweep.py` for a structured cross-branch benchmark sweep
-- `scripts/extended_experiments.py` for workload-mix, contention, and resize-focused experiments
+- `hash_map_test` for correctness and concurrency testing
+- `benchmark` for side-by-side throughput comparison across the four implementations
+
+During development, additional internal sweep scripts were used to generate the broader experiment tables and figures discussed in this report. Those scripts were only used to produce the results; the final submission keeps the code and commands needed for building, testing, and benchmarking on the target machine.
 
 ### 1. Core cross-variant sweep
 
@@ -135,12 +132,7 @@ The main comparison in the report uses a structured sweep across all four implem
 - bucket count: `65536`, `262144`, `1048576`
 - repetitions: `3` runs per scenario
 
-For `PUT`, the number of inserted keys was set to one quarter of the bucket count. This kept the open-addressing design in a reasonable operating regime. For `GET` and `MIXED`, the key space was preloaded and the operation count was derived from that key space. The resulting CSV files are:
-
-- `results/variant_sweep_raw.csv`
-- `results/variant_sweep_summary.csv`
-
-The summary file reports median, mean, best runtime, and median throughput in million operations per second.
+For `PUT`, the number of inserted keys was set to one quarter of the bucket count. This kept the open-addressing design in a reasonable operating regime. For `GET` and `MIXED`, the key space was preloaded and the operation count was derived from that key space. The final comparison uses aggregated runtimes across repeated runs so that the conclusions are not based on one noisy measurement.
 
 ### 2. Focused follow-up experiments
 
@@ -177,11 +169,7 @@ This experiment started the table from intentionally small sizes:
 
 and then inserted enough keys to force substantial growth. It compared the lock-based baseline, the fixed-size lock-free design, and the dynamic-resizing lock-free design. The open-addressing experiment was excluded because it does not support resizing.
 
-These focused experiments produced:
-
-- `results/workload_mix_summary.csv`
-- `results/contention_sweep_summary.csv`
-- `results/resize_focus_summary.csv`
+These focused experiments were summarized into the tables and figures used in the Results section.
 
 ### 3. Correctness validation
 

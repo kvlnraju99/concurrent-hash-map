@@ -17,6 +17,7 @@ This repository contains two C++ hash map implementations:
 - `profile.cpp` - lock-free `put()` micro-profiler
 - `bucket_sweep.cpp` - bucket-count sweep for `put/get/remove/miss`
 - `scripts/variant_sweep.py` - cross-branch sweep for all four major map variants
+- `scripts/extended_experiments.py` - focused follow-up experiments for workload mix, contention, and resizing
 - `Makefile` - build and run targets
 
 ## Build
@@ -72,6 +73,24 @@ Default matrix:
 - threads: `1,2,4,8,16`
 - buckets: `65536,262144,1048576`
 - open-addressing-safe load: `key_space = buckets * 0.25`
+
+Focused follow-up experiments:
+
+```bash
+python3 ./scripts/extended_experiments.py
+```
+
+This creates additional CSV files under `/Users/kvlnraju/College/courses/semester-4/multi-core/project/concurrent-hash-map/results`:
+
+- `workload_mix_raw.csv` / `workload_mix_summary.csv`
+- `contention_sweep_raw.csv` / `contention_sweep_summary.csv`
+- `resize_focus_raw.csv` / `resize_focus_summary.csv`
+
+These experiments target three report questions:
+
+- workload mix: how the variants behave under read-heavy, balanced, and write-heavy traffic
+- contention sweep: how performance changes when many threads fight over the same key space
+- resize focus: whether dynamic resizing helps when the table starts small and must grow
 
 ## Make targets
 

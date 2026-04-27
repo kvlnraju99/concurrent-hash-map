@@ -3,14 +3,16 @@
 
 #include <vector>
 #include <mutex>
+#include <shared_mutex>
 #include <optional>
 #include <functional>
 #include <atomic>
+#include <memory>
 
 /**
- * @brief A thread-safe Hash Map using Fine-Grained (Bucket-Level) Locking.
- * This implementation uses Separate Chaining (Linked Lists) and 
- * individual std::mutex per bucket to allow high concurrency.
+ * @brief Phase 3 Version: Concurrent Hash Map with Dynamic Resizing.
+ * Uses a Reader-Writer lock (shared_mutex) for the global structure
+ * and individual mutexes for each bucket.
  */
 template <typename K, typename V>
 class ConcurrentHashMap {
@@ -27,23 +29,72 @@ private:
         mutable std::mutex mtx; // Individual lock per bucket
     };
 
-    std::vector<Bucket> buckets;
+    // We use unique_ptr because std::mutex is not movable/copyable.
+    // This allows the vector to be reallocated safely.
+    std::vector<std::unique_ptr<Bucket>> buckets;
     size_t bucket_count;
     std::atomic<size_t> element_count;
+    
+    // Protects the structure of the map (the bucket array itself)
+    mutable std::shared_mutex global_structure_mtx;
 
-    // Standard hash-to-index mapping
-    size_t get_bucket_index(const K& key) const {
-        return std::hash<K>{}(key) % bucket_count;
+    size_t get_bucket_index(const K& key, size_t count) const {
+        return std::hash<K>{}(key) % count;
+    }
+
+    // Double-checked resizing logic
+    void check_and_resize() {
+        // Read-only check first (Fast path)
+        if (element_count.load() <= bucket_count) return;
+
+        // Try to acquire the unique lock to perform resize
+        std::unique_lock<std::shared_mutex> lock(global_structure_mtx);
+
+        // Double check after acquiring lock (Second check)
+        if (element_count.load() <= bucket_count) return;
+
+        size_t new_count = bucket_count * 2;
+        std::vector<std::unique_ptr<Bucket>> new_buckets(new_count);
+        for (size_t i = 0; i < new_count; ++i) {
+            new_buckets[i] = std::make_unique<Bucket>();
+        }
+
+        // Rehash all existing elements
+        for (size_t i = 0; i < bucket_count; ++i) {
+            // Note: No need to lock individual buckets here because we hold the global unique lock
+            Node* curr = buckets[i]->head;
+            while (curr) {
+                Node* next_node = curr->next;
+                size_t new_idx = get_bucket_index(curr->key, new_count);
+                
+                // Move node to new bucket
+                curr->next = new_buckets[new_idx]->head;
+                new_buckets[new_idx]->head = curr;
+                
+                curr = next_node;
+            }
+            // Clear old bucket head to avoid double-deletion if needed
+            buckets[i]->head = nullptr;
+        }
+
+        buckets = std::move(new_buckets);
+        bucket_count = new_count;
     }
 
 public:
-    explicit ConcurrentHashMap(size_t num_buckets = 131071) // Using a prime number for better distribution
-        : buckets(num_buckets), bucket_count(num_buckets), element_count(0) {}
-
-    // Destructor to clean up all allocated nodes
-    ~ConcurrentHashMap() {
+    explicit ConcurrentHashMap(size_t num_buckets = 1024) 
+        : bucket_count(num_buckets), element_count(0) {
+        buckets.reserve(bucket_count);
         for (size_t i = 0; i < bucket_count; ++i) {
-            Node* curr = buckets[i].head;
+            buckets.push_back(std::make_unique<Bucket>());
+        }
+    }
+
+    ~ConcurrentHashMap() {
+        // Global unique lock during destruction
+        std::unique_lock<std::shared_mutex> lock(global_structure_mtx);
+        for (size_t i = 0; i < bucket_count; ++i) {
+            Node* curr = buckets[i]->head;
             while (curr) {
                 Node* temp = curr;
                 curr = curr->next;
@@ -52,12 +103,14 @@ public:
         }
     }
 
-    // Insert or update a key-value pair
     void put(const K& key, const V& value) {
-        size_t idx = get_bucket_index(key);
-        std::lock_guard<std::mutex> lock(buckets[idx].mtx); // Only lock the specific bucket
+        // Shared lock for normal operation
+        std::shared_lock<std::shared_mutex> lock(global_structure_mtx);
 
-        Node* curr = buckets[idx].head;
+        size_t idx = get_bucket_index(key, bucket_count);
+        std::lock_guard<std::mutex> bucket_lock(buckets[idx]->mtx);
+
+        Node* curr = buckets[idx]->head;
         while (curr) {
             if (curr->key == key) {
                 curr->value = value;
@@ -66,17 +119,23 @@ public:
             curr = curr->next;
         }
 
-        // Key not found, insert new node at the head
-        buckets[idx].head = new Node(key, value, buckets[idx].head);
+        buckets[idx]->head = new Node(key, value, buckets[idx]->head);
         element_count.fetch_add(1, std::memory_order_relaxed);
+
+        // Check if we need to resize (releasing shared lock first to avoid deadlock)
+        if (element_count.load() > bucket_count) {
+            lock.unlock(); // Release shared lock
+            check_and_resize();
+        }
     }
 
-    // Retrieve a value by key
     std::optional<V> get(const K& key) const {
-        size_t idx = get_bucket_index(key);
-        std::lock_guard<std::mutex> lock(buckets[idx].mtx); // Only lock the specific bucket
+        std::shared_lock<std::shared_mutex> lock(global_structure_mtx);
 
-        Node* curr = buckets[idx].head;
+        size_t idx = get_bucket_index(key, bucket_count);
+        std::lock_guard<std::mutex> bucket_lock(buckets[idx]->mtx);
+
+        Node* curr = buckets[idx]->head;
         while (curr) {
             if (curr->key == key) {
                 return curr->value;
@@ -86,12 +145,13 @@ public:
         return std::nullopt;
     }
 
-    // Remove a key from the map
     bool remove(const K& key) {
-        size_t idx = get_bucket_index(key);
-        std::lock_guard<std::mutex> lock(buckets[idx].mtx);
+        std::shared_lock<std::shared_mutex> lock(global_structure_mtx);
 
-        Node* curr = buckets[idx].head;
+        size_t idx = get_bucket_index(key, bucket_count);
+        std::lock_guard<std::mutex> bucket_lock(buckets[idx]->mtx);
+
+        Node* curr = buckets[idx]->head;
         Node* prev = nullptr;
 
         while (curr) {
@@ -99,7 +159,7 @@ public:
                 if (prev) {
                     prev->next = curr->next;
                 } else {
-                    buckets[idx].head = curr->next;
+                    buckets[idx]->head = curr->next;
                 }
                 delete curr;
                 element_count.fetch_sub(1, std::memory_order_relaxed);
@@ -111,7 +171,6 @@ public:
         return false;
     }
 
-    // Return the total number of elements (using atomic counter)
     size_t size() const {
         return element_count.load(std::memory_order_relaxed);
     }

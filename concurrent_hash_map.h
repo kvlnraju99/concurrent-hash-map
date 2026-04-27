@@ -106,27 +106,33 @@ public:
     }
 
     void put(const K& key, const V& value) {
-        // Shared lock for normal operation
-        std::shared_lock<std::shared_mutex> lock(global_structure_mtx);
+        bool needs_resize = false;
+        {
+            // Shared lock for normal operation
+            std::shared_lock<std::shared_mutex> lock(global_structure_mtx);
 
-        size_t idx = get_bucket_index(key, bucket_count);
-        std::lock_guard<std::mutex> bucket_lock(buckets[idx]->mtx);
+            size_t idx = get_bucket_index(key, bucket_count);
+            std::lock_guard<std::mutex> bucket_lock(buckets[idx]->mtx);
 
-        Node* curr = buckets[idx]->head;
-        while (curr) {
-            if (curr->key == key) {
-                curr->value = value;
-                return;
+            Node* curr = buckets[idx]->head;
+            while (curr) {
+                if (curr->key == key) {
+                    curr->value = value;
+                    return;
+                }
+                curr = curr->next;
             }
-            curr = curr->next;
-        }
 
-        buckets[idx]->head = new Node(key, value, buckets[idx]->head);
-        element_count.fetch_add(1, std::memory_order_relaxed);
+            buckets[idx]->head = new Node(key, value, buckets[idx]->head);
+            element_count.fetch_add(1, std::memory_order_relaxed);
 
-        // Check if we need to resize (releasing shared lock first to avoid deadlock)
-        if (element_count.load() > bucket_count) {
-            lock.unlock(); // Release shared lock
+            // Check if we need to resize
+            if (element_count.load() > bucket_count) {
+                needs_resize = true;
+            }
+        } // All locks (global shared and bucket) are released here
+
+        if (needs_resize) {
             check_and_resize();
         }
     }

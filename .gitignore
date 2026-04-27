@@ -7,3 +7,6 @@ results/
 scripts/__pycache__/
 .mplconfig/
 .DS_Store
+test_phase1
+benchmark_compare
+*.dSYM/

@@ -6,8 +6,8 @@
 #include "concurrent_hash_map.h"
 
 template <typename MapType>
-void run_benchmark(const std::string& name, int num_threads, int ops_per_thread) {
-    MapType map;
+void run_benchmark(const std::string& name, int num_threads, int ops_per_thread, size_t num_buckets) {
+    MapType map(num_buckets);
     
     double start = omp_get_wtime();
 
@@ -32,19 +32,25 @@ void run_benchmark(const std::string& name, int num_threads, int ops_per_thread)
               << " | Time: " << std::fixed << std::setprecision(4) << (end - start) << "s" << std::endl;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     int max_threads = omp_get_max_threads();
     const int OPS = 100000;
+    size_t bucket_count = 131071; // Default
+
+    if (argc > 1) {
+        bucket_count = std::stoull(argv[1]);
+    }
 
     std::cout << "==========================================================" << std::endl;
     std::cout << " BENCHMARK: NAIVE GLOBAL LOCK vs. BUCKET-LEVEL LOCKING" << std::endl;
     std::cout << " Operations per thread: " << OPS << " (Put + Get)" << std::endl;
+    std::cout << " Bucket count:          " << bucket_count << std::endl;
     std::cout << "==========================================================" << std::endl;
 
     for (int t : {1, 4, 8, max_threads}) {
         if (t > max_threads) continue;
-        run_benchmark<NaiveHashMap<int, int>>("Naive (Global)", t, OPS);
-        run_benchmark<ConcurrentHashMap<int, int>>("Library (Bucket)", t, OPS);
+        run_benchmark<NaiveHashMap<int, int>>("Naive (Global)", t, OPS, bucket_count);
+        run_benchmark<ConcurrentHashMap<int, int>>("Library (Bucket)", t, OPS, bucket_count);
         std::cout << "----------------------------------------------------------" << std::endl;
     }
 

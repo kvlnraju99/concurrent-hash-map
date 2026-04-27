@@ -16,6 +16,10 @@ private:
     mutable std::mutex global_mtx; // Single lock for the whole map
 
 public:
+    explicit NaiveHashMap(size_t num_buckets = 131071) {
+        internal_map.rehash(num_buckets);
+    }
+
     // Insert or update a key-value pair
     void put(const K& key, const V& value) {
         std::lock_guard<std::mutex> lock(global_mtx);

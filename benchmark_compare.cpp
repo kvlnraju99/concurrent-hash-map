@@ -46,24 +46,15 @@ int main(int argc, char* argv[]) {
     std::cout << " Bucket count: " << bucket_count << std::endl;
     std::cout << "==========================================================" << std::endl;
 
-    // --- WEAK SCALING ---
-    const int WEAK_OPS = 100000;
-    std::cout << "\n[1] WEAK SCALING (Fixed work per thread: " << WEAK_OPS << ")" << std::endl;
-    std::cout << "----------------------------------------------------------" << std::endl;
-    for (int t : {1, 4, 8, max_threads}) {
-        if (t > max_threads) continue;
-        run_benchmark<NaiveHashMap<int, int>>("Naive (Global)", t, WEAK_OPS, bucket_count);
-        run_benchmark<ConcurrentHashMapV2<int, int>>("Library V2 (Static)", t, WEAK_OPS, bucket_count);
-        run_benchmark<ConcurrentHashMap<int, int>>("Library V3 (Dynamic)", t, WEAK_OPS, bucket_count);
-        std::cout << "----------------------------------------------------------" << std::endl;
-    }
-
     // --- STRONG SCALING ---
-    const int TOTAL_OPS = 800000;
-    std::cout << "\n[2] STRONG SCALING (Fixed total work: " << TOTAL_OPS << ")" << std::endl;
+    const int TOTAL_OPS = 1000000; // Fixed total work
+    std::cout << "\n[STRONG SCALING] Fixed total work: " << TOTAL_OPS << std::endl;
     std::cout << "----------------------------------------------------------" << std::endl;
-    for (int t : {1, 4, 8, max_threads}) {
+    
+    // Test for 1, 4, 8, 16, 32 threads (capped by system max)
+    for (int t : {1, 4, 8, 16, 32}) {
         if (t > max_threads) continue;
+
         int ops_per_thread = TOTAL_OPS / t;
         run_benchmark<NaiveHashMap<int, int>>("Naive (Global)", t, ops_per_thread, bucket_count);
         run_benchmark<ConcurrentHashMapV2<int, int>>("Library V2 (Static)", t, ops_per_thread, bucket_count);

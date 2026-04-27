@@ -8,12 +8,15 @@ LDFLAGS =
 # CXXFLAGS = -std=c++17 -O3 -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include
 # LDFLAGS = -L/opt/homebrew/opt/libomp/lib -lomp
 
-TARGET = test_phase1
+TARGETS = test_phase1 benchmark_compare
 
-all: $(TARGET)
+all: $(TARGETS)
 
-$(TARGET): test_phase1.cpp naive_map.h
-	$(CXX) $(CXXFLAGS) -o $(TARGET) test_phase1.cpp $(LDFLAGS)
+test_phase1: test_phase1.cpp naive_map.h
+	$(CXX) $(CXXFLAGS) -o test_phase1 test_phase1.cpp $(LDFLAGS)
+
+benchmark_compare: benchmark_compare.cpp naive_map.h concurrent_hash_map.h
+	$(CXX) $(CXXFLAGS) -o benchmark_compare benchmark_compare.cpp $(LDFLAGS)
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGETS)

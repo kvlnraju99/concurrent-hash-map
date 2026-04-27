@@ -8,7 +8,7 @@ CXX = clang++
 CXXFLAGS = -std=c++17 -O3 -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include
 LDFLAGS = -L/opt/homebrew/opt/libomp/lib -lomp
 
-TARGETS = test_phase1 benchmark_compare
+TARGETS = test_phase1 benchmark_compare test_library_correctness
 
 all: $(TARGETS)
 
@@ -17,6 +17,9 @@ test_phase1: test_phase1.cpp naive_map.h
 
 benchmark_compare: benchmark_compare.cpp naive_map.h concurrent_hash_map.h
 	$(CXX) $(CXXFLAGS) -o benchmark_compare benchmark_compare.cpp $(LDFLAGS)
+
+test_library_correctness: test_library_correctness.cpp concurrent_hash_map.h
+	$(CXX) $(CXXFLAGS) -o test_library_correctness test_library_correctness.cpp $(LDFLAGS)
 
 clean:
 	rm -f $(TARGETS)

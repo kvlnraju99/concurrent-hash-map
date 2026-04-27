@@ -34,7 +34,6 @@ void run_benchmark(const std::string& name, int num_threads, int ops_per_thread,
 
 int main(int argc, char* argv[]) {
     int max_threads = omp_get_max_threads();
-    const int OPS = 100000;
     size_t bucket_count = 131071; // Default
 
     if (argc > 1) {
@@ -42,15 +41,30 @@ int main(int argc, char* argv[]) {
     }
 
     std::cout << "==========================================================" << std::endl;
-    std::cout << " BENCHMARK: NAIVE GLOBAL LOCK vs. BUCKET-LEVEL LOCKING" << std::endl;
-    std::cout << " Operations per thread: " << OPS << " (Put + Get)" << std::endl;
-    std::cout << " Bucket count:          " << bucket_count << std::endl;
+    std::cout << " BENCHMARK SUITE: NAIVE vs. BUCKET-LEVEL LOCKING" << std::endl;
+    std::cout << " Bucket count: " << bucket_count << std::endl;
     std::cout << "==========================================================" << std::endl;
 
+    // --- WEAK SCALING ---
+    const int WEAK_OPS = 100000;
+    std::cout << "\n[1] WEAK SCALING (Fixed work per thread: " << WEAK_OPS << ")" << std::endl;
+    std::cout << "----------------------------------------------------------" << std::endl;
     for (int t : {1, 4, 8, max_threads}) {
         if (t > max_threads) continue;
-        run_benchmark<NaiveHashMap<int, int>>("Naive (Global)", t, OPS, bucket_count);
-        run_benchmark<ConcurrentHashMap<int, int>>("Library (Bucket)", t, OPS, bucket_count);
+        run_benchmark<NaiveHashMap<int, int>>("Naive (Global)", t, WEAK_OPS, bucket_count);
+        run_benchmark<ConcurrentHashMap<int, int>>("Library (Bucket)", t, WEAK_OPS, bucket_count);
+        std::cout << "----------------------------------------------------------" << std::endl;
+    }
+
+    // --- STRONG SCALING ---
+    const int TOTAL_OPS = 800000;
+    std::cout << "\n[2] STRONG SCALING (Fixed total work: " << TOTAL_OPS << ")" << std::endl;
+    std::cout << "----------------------------------------------------------" << std::endl;
+    for (int t : {1, 4, 8, max_threads}) {
+        if (t > max_threads) continue;
+        int ops_per_thread = TOTAL_OPS / t;
+        run_benchmark<NaiveHashMap<int, int>>("Naive (Global)", t, ops_per_thread, bucket_count);
+        run_benchmark<ConcurrentHashMap<int, int>>("Library (Bucket)", t, ops_per_thread, bucket_count);
         std::cout << "----------------------------------------------------------" << std::endl;
     }
 

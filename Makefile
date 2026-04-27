@@ -1,22 +1,19 @@
+# Default Compiler for Linux / CIMS
 CXX = g++
-CXXFLAGS = -std=c++17 -O2 -pthread -Wall -Wextra
-TESTS = hash_map_test
-BENCH = benchmark
-HEADERS = concurrent_hash_map.h lock_free_hash_map.h lock_free_dynamic_resize_hash_map.h lock_free_open_addressing_hash_map.h
+CXXFLAGS = -std=c++17 -O3 -fopenmp -Wall
+LDFLAGS = 
 
-all: $(TESTS) $(BENCH)
+# Uncomment these lines if running on macOS with Homebrew libomp
+# CXX = clang++
+# CXXFLAGS = -std=c++17 -O3 -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include
+# LDFLAGS = -L/opt/homebrew/opt/libomp/lib -lomp
 
-$(TESTS): tests.cpp $(HEADERS)
-	$(CXX) $(CXXFLAGS) -o $(TESTS) tests.cpp
+TARGET = test_phase1
 
-$(BENCH): benchmark.cpp $(HEADERS)
-	$(CXX) $(CXXFLAGS) -o $(BENCH) benchmark.cpp
+all: $(TARGET)
 
-test: $(TESTS)
-	./$(TESTS)
-
-bench: $(BENCH)
-	./$(BENCH)
+$(TARGET): test_phase1.cpp naive_map.h
+	$(CXX) $(CXXFLAGS) -o $(TARGET) test_phase1.cpp $(LDFLAGS)
 
 clean:
-	rm -f $(TESTS) $(BENCH)
+	rm -f $(TARGET)

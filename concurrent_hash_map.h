@@ -54,9 +54,6 @@ private:
         if (element_count.load() <= bucket_count) return;
 
         size_t new_count = bucket_count * 2;
-        printf("[DEBUG] Resizing from %zu to %zu buckets...\n", bucket_count, new_count);
-        double start = omp_get_wtime();
-
         std::vector<std::unique_ptr<Bucket>> new_buckets(new_count);
         for (size_t i = 0; i < new_count; ++i) {
             new_buckets[i] = std::make_unique<Bucket>();
@@ -79,8 +76,6 @@ private:
 
         buckets = std::move(new_buckets);
         bucket_count = new_count;
-        double end = omp_get_wtime();
-        printf("[DEBUG] Resize completed in %.4fs\n", end - start);
     }
 
 public:

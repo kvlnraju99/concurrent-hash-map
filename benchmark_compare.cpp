@@ -4,6 +4,7 @@
 #include <omp.h>
 #include "naive_map.h"
 #include "concurrent_hash_map.h"
+#include "concurrent_hash_map_v2.h"
 
 template <typename MapType>
 void run_benchmark(const std::string& name, int num_threads, int ops_per_thread, size_t num_buckets) {
@@ -52,7 +53,8 @@ int main(int argc, char* argv[]) {
     for (int t : {1, 4, 8, max_threads}) {
         if (t > max_threads) continue;
         run_benchmark<NaiveHashMap<int, int>>("Naive (Global)", t, WEAK_OPS, bucket_count);
-        run_benchmark<ConcurrentHashMap<int, int>>("Library (Bucket)", t, WEAK_OPS, bucket_count);
+        run_benchmark<ConcurrentHashMapV2<int, int>>("Library V2 (Static)", t, WEAK_OPS, bucket_count);
+        run_benchmark<ConcurrentHashMap<int, int>>("Library V3 (Dynamic)", t, WEAK_OPS, bucket_count);
         std::cout << "----------------------------------------------------------" << std::endl;
     }
 
@@ -64,7 +66,8 @@ int main(int argc, char* argv[]) {
         if (t > max_threads) continue;
         int ops_per_thread = TOTAL_OPS / t;
         run_benchmark<NaiveHashMap<int, int>>("Naive (Global)", t, ops_per_thread, bucket_count);
-        run_benchmark<ConcurrentHashMap<int, int>>("Library (Bucket)", t, ops_per_thread, bucket_count);
+        run_benchmark<ConcurrentHashMapV2<int, int>>("Library V2 (Static)", t, ops_per_thread, bucket_count);
+        run_benchmark<ConcurrentHashMap<int, int>>("Library V3 (Dynamic)", t, ops_per_thread, bucket_count);
         std::cout << "----------------------------------------------------------" << std::endl;
     }
 

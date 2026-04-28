@@ -8,6 +8,7 @@
 #include "naive_map.h"
 #include "concurrent_hash_map.h"
 #include "concurrent_hash_map_v2.h"
+#include "concurrent_hash_map_v4.h"
 
 // Simulate a large text corpus with many repeating words
 std::vector<std::string> generate_corpus(int total_words, int unique_words) {
@@ -76,6 +77,7 @@ int main(int argc, char* argv[]) {
     run_word_counter<NaiveHashMap<std::string, int>>("Naive (Global)", corpus, num_threads, bucket_count);
     run_word_counter<ConcurrentHashMapV2<std::string, int>>("Library V2 (Static)", corpus, num_threads, bucket_count);
     run_word_counter<ConcurrentHashMap<std::string, int>>("Library V3 (Dynamic)", corpus, num_threads, bucket_count);
+    run_word_counter<ConcurrentHashMapV4<std::string, int>>("Library V4 (Atomic)", corpus, num_threads, bucket_count);
 
     std::cout << "==========================================================" << std::endl;
 

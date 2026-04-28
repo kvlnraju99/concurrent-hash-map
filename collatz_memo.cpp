@@ -6,6 +6,7 @@
 #include "concurrent_hash_map.h"
 #include "concurrent_hash_map_v2.h"
 #include "concurrent_hash_map_v4.h"
+#include "concurrent_hash_map_v5.h"
 
 // Standard Collatz calculation (No Cache)
 long long get_collatz_no_cache(long long n) {
@@ -114,6 +115,17 @@ int main(int argc, char* argv[]) {
     double time_v4 = omp_get_wtime() - start;
     std::cout << std::left << std::setw(20) << "Library V4 (Atomic)" << " | Time: " << std::fixed << std::setprecision(4) << time_v4 << "s"
               << " | Cache Size: " << v4_cache.size() << std::endl;
+
+    // --- 6. LIBRARY V5 (Wait-Free) ---
+    ConcurrentHashMapV5<long long, long long> v5_cache(bucket_count);
+    start = omp_get_wtime();
+    #pragma omp parallel for num_threads(num_threads)
+    for (long long i = 1; i <= upper_limit; ++i) {
+        get_collatz_with_cache(i, v5_cache);
+    }
+    double time_v5 = omp_get_wtime() - start;
+    std::cout << std::left << std::setw(20) << "Library V5 (Wait-Free)" << " | Time: " << std::fixed << std::setprecision(4) << time_v5 << "s"
+              << " | Cache Size: " << v5_cache.size() << std::endl;
 
     std::cout << "----------------------------------------------------------" << std::endl;
     std::cout << "Speedup (V3 vs Naive): " << (time_naive / time_v3) << "x" << std::endl;

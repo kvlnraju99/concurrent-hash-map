@@ -8,6 +8,7 @@
 #include "concurrent_hash_map.h"
 #include "concurrent_hash_map_v2.h"
 #include "concurrent_hash_map_v4.h"
+#include "concurrent_hash_map_v5.h"
 
 // Simple Graph Structure: Adjacency List
 struct Graph {
@@ -120,6 +121,7 @@ int main(int argc, char* argv[]) {
     run_bfs<ConcurrentHashMapV2<int, bool>>("Library V2 (Static)", g, 0, num_threads, bucket_count);
     run_bfs<ConcurrentHashMap<int, bool>>("Library V3 (Dynamic)", g, 0, num_threads, bucket_count);
     run_bfs<ConcurrentHashMapV4<int, bool>>("Library V4 (Atomic)", g, 0, num_threads, bucket_count);
+    run_bfs<ConcurrentHashMapV5<int, bool>>("Library V5 (Wait-Free)", g, 0, num_threads, bucket_count);
 
     std::cout << "==========================================================" << std::endl;
 

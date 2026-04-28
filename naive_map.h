@@ -58,6 +58,15 @@ public:
         std::lock_guard<std::mutex> lock(global_mtx);
         return internal_map.size();
     }
+
+    V sum_all_values() const {
+        std::lock_guard<std::mutex> lock(global_mtx);
+        V total = 0;
+        for (auto const& [key, val] : internal_map) {
+            total += val;
+        }
+        return total;
+    }
 };
 
 #endif

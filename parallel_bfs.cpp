@@ -84,9 +84,14 @@ void run_bfs(const std::string& name, const Graph& g, int start_node, int num_th
     }
 
     double end_time = omp_get_wtime();
+    
+    // Verification Step
+    size_t visited_count = visited.size();
+
     std::cout << std::left << std::setw(20) << name 
               << " | Threads: " << std::setw(2) << num_threads 
-              << " | Time: " << std::fixed << std::setprecision(4) << (end_time - start_time) << "s" << std::endl;
+              << " | Time: " << std::fixed << std::setprecision(4) << (end_time - start_time) << "s"
+              << " | Visited: " << visited_count << std::endl;
 }
 
 int main(int argc, char* argv[]) {

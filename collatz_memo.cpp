@@ -78,7 +78,8 @@ int main(int argc, char* argv[]) {
         get_collatz_with_cache(i, naive_cache);
     }
     double time_naive = omp_get_wtime() - start;
-    std::cout << std::left << std::setw(20) << "Naive Cache" << " | Time: " << std::fixed << std::setprecision(4) << time_naive << "s" << std::endl;
+    std::cout << std::left << std::setw(20) << "Naive Cache" << " | Time: " << std::fixed << std::setprecision(4) << time_naive << "s" 
+              << " | Cache Size: " << naive_cache.size() << std::endl;
 
     // --- 3. LIBRARY V2 (Static) ---
     ConcurrentHashMapV2<long long, long long> v2_cache(bucket_count);
@@ -88,7 +89,8 @@ int main(int argc, char* argv[]) {
         get_collatz_with_cache(i, v2_cache);
     }
     double time_v2 = omp_get_wtime() - start;
-    std::cout << std::left << std::setw(20) << "Library V2 (Static)" << " | Time: " << std::fixed << std::setprecision(4) << time_v2 << "s" << std::endl;
+    std::cout << std::left << std::setw(20) << "Library V2 (Static)" << " | Time: " << std::fixed << std::setprecision(4) << time_v2 << "s"
+              << " | Cache Size: " << v2_cache.size() << std::endl;
 
     // --- 4. LIBRARY V3 (Dynamic) ---
     ConcurrentHashMap<long long, long long> v3_cache(bucket_count);
@@ -98,7 +100,8 @@ int main(int argc, char* argv[]) {
         get_collatz_with_cache(i, v3_cache);
     }
     double time_v3 = omp_get_wtime() - start;
-    std::cout << std::left << std::setw(20) << "Library V3 (Dynamic)" << " | Time: " << std::fixed << std::setprecision(4) << time_v3 << "s" << std::endl;
+    std::cout << std::left << std::setw(20) << "Library V3 (Dynamic)" << " | Time: " << std::fixed << std::setprecision(4) << time_v3 << "s"
+              << " | Cache Size: " << v3_cache.size() << std::endl;
 
     std::cout << "----------------------------------------------------------" << std::endl;
     std::cout << "Speedup (V3 vs Naive): " << (time_naive / time_v3) << "x" << std::endl;

@@ -208,6 +208,20 @@ public:
     size_t size() const {
         return element_count.load(std::memory_order_relaxed);
     }
+
+    V sum_all_values() const {
+        V total = 0;
+        std::shared_lock<std::shared_mutex> lock(global_structure_mtx);
+        for (size_t i = 0; i < bucket_count; ++i) {
+            std::lock_guard<std::mutex> bucket_lock(buckets[i]->mtx);
+            Node* curr = buckets[i]->head;
+            while (curr) {
+                total += curr->value;
+                curr = curr->next;
+            }
+        }
+        return total;
+    }
 };
 
 #endif

@@ -43,9 +43,14 @@ void run_word_counter(const std::string& name, const std::vector<std::string>& c
     }
     double end = omp_get_wtime();
 
+    // Verification Step
+    long long total_sum = map.sum_all_values();
+    std::string status = (total_sum == (long long)corpus.size()) ? "PASSED" : "FAILED";
+
     std::cout << std::left << std::setw(20) << name 
               << " | Threads: " << std::setw(2) << num_threads 
-              << " | Time: " << std::fixed << std::setprecision(4) << (end - start) << "s" << std::endl;
+              << " | Time: " << std::fixed << std::setprecision(4) << (end - start) << "s"
+              << " | Verification: " << status << " (" << total_sum << ")" << std::endl;
 }
 
 int main(int argc, char* argv[]) {

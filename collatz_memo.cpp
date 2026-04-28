@@ -4,6 +4,7 @@
 #include <omp.h>
 #include "naive_map.h"
 #include "concurrent_hash_map.h"
+#include "concurrent_hash_map_v2.h"
 
 // Standard Collatz calculation (No Cache)
 long long get_collatz_no_cache(long long n) {
@@ -38,7 +39,6 @@ long long get_collatz_with_cache(long long n, MapType& cache) {
     if (total_length == -1) total_length = 0; // reached 1
 
     // 2. Backfill the cache with results for every step in the path
-    // We go backwards to build up the lengths
     for (int i = path.size() - 1; i >= 0; --i) {
         total_length++;
         cache.put(path[i], total_length);
@@ -50,13 +50,15 @@ long long get_collatz_with_cache(long long n, MapType& cache) {
 int main(int argc, char* argv[]) {
     long long upper_limit = 500000;
     int num_threads = omp_get_max_threads();
+    size_t bucket_count = 10000; // Small default to see resizing impact
 
     if (argc > 1) upper_limit = std::stoll(argv[1]);
     if (argc > 2) num_threads = std::stoi(argv[2]);
+    if (argc > 3) bucket_count = std::stoull(argv[3]);
 
     std::cout << "==========================================================" << std::endl;
     std::cout << " APPLICATION: SHARED COLLATZ MEMOIZATION" << std::endl;
-    std::cout << " Range: 1 to " << upper_limit << " | Threads: " << num_threads << std::endl;
+    std::cout << " Range: 1 to " << upper_limit << " | Threads: " << num_threads << " | Buckets: " << bucket_count << std::endl;
     std::cout << "==========================================================" << std::endl;
 
     // --- 1. NO CACHE ---
@@ -69,7 +71,7 @@ int main(int argc, char* argv[]) {
     std::cout << std::left << std::setw(20) << "No Cache" << " | Time: " << std::fixed << std::setprecision(4) << time_no_cache << "s" << std::endl;
 
     // --- 2. NAIVE CACHE (Global Lock) ---
-    NaiveHashMap<long long, long long> naive_cache(131071);
+    NaiveHashMap<long long, long long> naive_cache(bucket_count);
     start = omp_get_wtime();
     #pragma omp parallel for num_threads(num_threads)
     for (long long i = 1; i <= upper_limit; ++i) {
@@ -78,19 +80,29 @@ int main(int argc, char* argv[]) {
     double time_naive = omp_get_wtime() - start;
     std::cout << std::left << std::setw(20) << "Naive Cache" << " | Time: " << std::fixed << std::setprecision(4) << time_naive << "s" << std::endl;
 
-    // --- 3. LIBRARY CACHE (Concurrent) ---
-    ConcurrentHashMap<long long, long long> lib_cache(131071);
+    // --- 3. LIBRARY V2 (Static) ---
+    ConcurrentHashMapV2<long long, long long> v2_cache(bucket_count);
     start = omp_get_wtime();
     #pragma omp parallel for num_threads(num_threads)
     for (long long i = 1; i <= upper_limit; ++i) {
-        get_collatz_with_cache(i, lib_cache);
+        get_collatz_with_cache(i, v2_cache);
     }
-    double time_lib = omp_get_wtime() - start;
-    std::cout << std::left << std::setw(20) << "Library Cache" << " | Time: " << std::fixed << std::setprecision(4) << time_lib << "s" << std::endl;
+    double time_v2 = omp_get_wtime() - start;
+    std::cout << std::left << std::setw(20) << "Library V2 (Static)" << " | Time: " << std::fixed << std::setprecision(4) << time_v2 << "s" << std::endl;
+
+    // --- 4. LIBRARY V3 (Dynamic) ---
+    ConcurrentHashMap<long long, long long> v3_cache(bucket_count);
+    start = omp_get_wtime();
+    #pragma omp parallel for num_threads(num_threads)
+    for (long long i = 1; i <= upper_limit; ++i) {
+        get_collatz_with_cache(i, v3_cache);
+    }
+    double time_v3 = omp_get_wtime() - start;
+    std::cout << std::left << std::setw(20) << "Library V3 (Dynamic)" << " | Time: " << std::fixed << std::setprecision(4) << time_v3 << "s" << std::endl;
 
     std::cout << "----------------------------------------------------------" << std::endl;
-    std::cout << "Speedup (Library vs No Cache): " << (time_no_cache / time_lib) << "x" << std::endl;
-    std::cout << "Speedup (Library vs Naive):    " << (time_naive / time_lib) << "x" << std::endl;
+    std::cout << "Speedup (V3 vs Naive): " << (time_naive / time_v3) << "x" << std::endl;
+    std::cout << "Speedup (V3 vs V2):    " << (time_v2 / time_v3) << "x" << std::endl;
 
     return 0;
 }

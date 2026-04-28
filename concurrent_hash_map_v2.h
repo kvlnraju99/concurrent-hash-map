@@ -103,6 +103,24 @@ public:
         return false;
     }
 
+    void update(const K& key, std::function<V(std::optional<V>)> updater) {
+        size_t idx = get_bucket_index(key);
+        std::lock_guard<std::mutex> lock(buckets[idx].mtx);
+
+        Node* curr = buckets[idx].head;
+        while (curr) {
+            if (curr->key == key) {
+                curr->value = updater(curr->value);
+                return;
+            }
+            curr = curr->next;
+        }
+
+        V new_val = updater(std::nullopt);
+        buckets[idx].head = new Node(key, new_val, buckets[idx].head);
+        element_count.fetch_add(1, std::memory_order_relaxed);
+    }
+
     size_t size() const {
         return element_count.load(std::memory_order_relaxed);
     }

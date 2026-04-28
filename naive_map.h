@@ -43,6 +43,16 @@ public:
     }
 
     // Return the current number of elements
+    void update(const K& key, std::function<V(std::optional<V>)> updater) {
+        std::lock_guard<std::mutex> lock(global_mtx);
+        auto it = internal_map.find(key);
+        if (it != internal_map.end()) {
+            it->second = updater(it->second);
+        } else {
+            internal_map[key] = updater(std::nullopt);
+        }
+    }
+
     size_t size() const {
         std::lock_guard<std::mutex> lock(global_mtx);
         return internal_map.size();

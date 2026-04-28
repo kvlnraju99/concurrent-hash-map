@@ -174,6 +174,37 @@ public:
         return false;
     }
 
+    void update(const K& key, std::function<V(std::optional<V>)> updater) {
+        bool needs_resize = false;
+        {
+            std::shared_lock<std::shared_mutex> lock(global_structure_mtx);
+            size_t idx = get_bucket_index(key, bucket_count);
+            std::lock_guard<std::mutex> bucket_lock(buckets[idx]->mtx);
+
+            Node* curr = buckets[idx]->head;
+            while (curr) {
+                if (curr->key == key) {
+                    curr->value = updater(curr->value);
+                    return;
+                }
+                curr = curr->next;
+            }
+
+            // Key not found, create new
+            V new_val = updater(std::nullopt);
+            buckets[idx]->head = new Node(key, new_val, buckets[idx]->head);
+            element_count.fetch_add(1, std::memory_order_relaxed);
+
+            if (element_count.load() > bucket_count) {
+                needs_resize = true;
+            }
+        }
+
+        if (needs_resize) {
+            check_and_resize();
+        }
+    }
+
     size_t size() const {
         return element_count.load(std::memory_order_relaxed);
     }

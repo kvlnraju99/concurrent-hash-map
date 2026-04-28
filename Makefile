@@ -8,8 +8,8 @@ CXX = clang++
 CXXFLAGS = -std=c++17 -O3 -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include
 LDFLAGS = -L/opt/homebrew/opt/libomp/lib -lomp
 
-TARGETS = benchmark_compare test_phase1 test_library_correctness collatz_memo word_counter parallel_bfs
-EXECUTABLES = benchmark_compare test_phase1 test_library_correctness collatz_memo word_counter parallel_bfs
+TARGETS = benchmark_compare test_phase1 test_library_correctness collatz_memo word_counter parallel_bfs resource_cache
+EXECUTABLES = benchmark_compare test_phase1 test_library_correctness collatz_memo word_counter parallel_bfs resource_cache
 
 all: $(TARGETS)
 

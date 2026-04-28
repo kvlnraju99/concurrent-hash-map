@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <mutex>
 #include <optional>
+#include <functional>
 
 /**
  * @brief A thread-safe wrapper around std::unordered_map using a single global mutex.

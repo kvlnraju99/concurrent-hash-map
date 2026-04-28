@@ -57,6 +57,7 @@ int main(int argc, char* argv[]) {
     if (argc > 1) total_words = std::stoi(argv[1]);
     if (argc > 2) unique_words = std::stoi(argv[2]);
     if (argc > 3) num_threads = std::stoi(argv[3]);
+    if (argc > 4) bucket_count = std::stoull(argv[4]);
 
     std::cout << "==========================================================" << std::endl;
     std::cout << " APPLICATION: PARALLEL WORD FREQUENCY COUNTER" << std::endl;

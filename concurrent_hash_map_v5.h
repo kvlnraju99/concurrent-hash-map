@@ -174,6 +174,21 @@ public:
     size_t size() const {
         return element_count.load();
     }
+
+    V sum_all_values() {
+        active_readers.fetch_add(1, std::memory_order_acquire);
+        BucketArray* arr = current_array.load(std::memory_order_relaxed);
+        V total = 0;
+        for (size_t i = 0; i < arr->count; ++i) {
+            Node* curr = arr->buckets[i]->head.load(std::memory_order_relaxed);
+            while (curr) {
+                total += curr->value.load(std::memory_order_relaxed);
+                curr = curr->next;
+            }
+        }
+        active_readers.fetch_add(-1, std::memory_order_release);
+        return total;
+    }
 };
 
 #endif

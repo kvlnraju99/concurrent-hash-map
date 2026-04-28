@@ -10,6 +10,9 @@
 #include "concurrent_hash_map_v2.h"
 #include "concurrent_hash_map_v4.h"
 #include "concurrent_hash_map_v5.h"
+#ifdef USE_TBB
+#include "tbb_wrapper.h"
+#endif
 
 // Simulate a large text corpus with many repeating words
 std::vector<std::string> generate_corpus(int total_words, int unique_words) {
@@ -80,6 +83,9 @@ int main(int argc, char* argv[]) {
     run_word_counter<ConcurrentHashMap<std::string, int>>("Library V3 (Dynamic)", corpus, num_threads, bucket_count);
     run_word_counter<ConcurrentHashMapV4<std::string, int>>("Library V4 (Atomic)", corpus, num_threads, bucket_count);
     run_word_counter<ConcurrentHashMapV5<std::string, int>>("Library V5 (Wait-Free)", corpus, num_threads, bucket_count);
+#ifdef USE_TBB
+    run_word_counter<TBBHashMapWrapper<std::string, int>>("Intel TBB (Industry)", corpus, num_threads, bucket_count);
+#endif
 
     std::cout << "==========================================================" << std::endl;
 

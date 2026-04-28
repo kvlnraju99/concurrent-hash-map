@@ -7,6 +7,9 @@
 #include "concurrent_hash_map_v2.h"
 #include "concurrent_hash_map_v4.h"
 #include "concurrent_hash_map_v5.h"
+#ifdef USE_TBB
+#include "tbb_wrapper.h"
+#endif
 
 // Standard Collatz calculation (No Cache)
 long long get_collatz_no_cache(long long n) {
@@ -118,6 +121,9 @@ int main(int argc, char* argv[]) {
 
     // --- 6. LIBRARY V5 (Wait-Free) ---
     ConcurrentHashMapV5<long long, long long> v5_cache(bucket_count);
+#ifdef USE_TBB
+    TBBHashMapWrapper<long long, long long> tbb_cache(bucket_count);
+#endif
     start = omp_get_wtime();
     #pragma omp parallel for num_threads(num_threads)
     for (long long i = 1; i <= upper_limit; ++i) {
@@ -126,6 +132,18 @@ int main(int argc, char* argv[]) {
     double time_v5 = omp_get_wtime() - start;
     std::cout << std::left << std::setw(20) << "Library V5 (Wait-Free)" << " | Time: " << std::fixed << std::setprecision(4) << time_v5 << "s"
               << " | Cache Size: " << v5_cache.size() << std::endl;
+
+#ifdef USE_TBB
+    // --- 7. INTEL TBB (Industry) ---
+    start = omp_get_wtime();
+    #pragma omp parallel for num_threads(num_threads)
+    for (long long i = 1; i <= upper_limit; ++i) {
+        get_collatz_with_cache(i, tbb_cache);
+    }
+    double time_tbb = omp_get_wtime() - start;
+    std::cout << std::left << std::setw(20) << "Intel TBB (Industry)" << " | Time: " << std::fixed << std::setprecision(4) << time_tbb << "s"
+              << " | Cache Size: " << tbb_cache.size() << std::endl;
+#endif
 
     std::cout << "----------------------------------------------------------" << std::endl;
     std::cout << "Speedup (V3 vs Naive): " << (time_naive / time_v3) << "x" << std::endl;

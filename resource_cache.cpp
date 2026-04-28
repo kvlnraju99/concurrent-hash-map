@@ -7,6 +7,9 @@
 #include "naive_map.h"
 #include "concurrent_hash_map.h"
 #include "concurrent_hash_map_v2.h"
+#ifdef USE_TBB
+#include "tbb_wrapper.h"
+#endif
 
 // Simulate a resource: data is just a hash of the URL to allow verification
 std::string get_mock_data(const std::string& url) {
@@ -83,6 +86,9 @@ int main(int argc, char* argv[]) {
     run_cache_simulation<NaiveHashMap<std::string, std::string>>("Naive (Global)", total_ops, num_threads, bucket_count);
     run_cache_simulation<ConcurrentHashMapV2<std::string, std::string>>("Library V2 (Static)", total_ops, num_threads, bucket_count);
     run_cache_simulation<ConcurrentHashMap<std::string, std::string>>("Library V3 (Dynamic)", total_ops, num_threads, bucket_count);
+#ifdef USE_TBB
+    run_cache_simulation<TBBHashMapWrapper<std::string, std::string>>("Intel TBB (Industry)", total_ops, num_threads, bucket_count);
+#endif
 
     std::cout << "==========================================================" << std::endl;
 

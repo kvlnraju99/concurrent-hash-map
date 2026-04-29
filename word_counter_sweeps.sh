@@ -3,6 +3,11 @@
 # Ensure we are built
 make word_counter > /dev/null
 
+# Helper function to extract time
+extract_time() {
+    echo "$1" | grep "$2" | awk -F'Time: ' '{print $2}' | awk '{print $1}' | sed 's/s//'
+}
+
 # --- EXPERIMENT 1: THREAD SCALABILITY ---
 TOTAL_WORDS=5000000
 UNIQUE_WORDS=100000
@@ -18,10 +23,10 @@ echo "| :--- | :--- | :--- | :--- | :--- |"
 for T in "${THREADS[@]}"
 do
     RESULTS=$(./word_counter $TOTAL_WORDS $UNIQUE_WORDS $T $BUCKETS)
-    SEQ=$(echo "$RESULTS" | grep "Sequential" | awk '{print $7}')
-    V2=$(echo "$RESULTS" | grep "Library V2" | awk '{print $7}')
-    V3=$(echo "$RESULTS" | grep "Library V3" | awk '{print $7}')
-    TBB=$(echo "$RESULTS" | grep "Intel TBB" | awk '{print $7}')
+    SEQ=$(extract_time "$RESULTS" "Sequential")
+    V2=$(extract_time "$RESULTS" "Library V2")
+    V3=$(extract_time "$RESULTS" "Library V3")
+    TBB=$(extract_time "$RESULTS" "Intel TBB")
     if [ -z "$TBB" ]; then TBB="N/A"; fi
     echo "| $T | $SEQ | $V2 | $V3 | $TBB |"
 done
@@ -43,10 +48,10 @@ echo "| :--- | :--- | :--- | :--- | :--- |"
 for B in "${BUCKET_LIST[@]}"
 do
     RESULTS=$(./word_counter $TOTAL_WORDS $UNIQUE_WORDS $THREADS $B)
-    SEQ=$(echo "$RESULTS" | grep "Sequential" | awk '{print $7}')
-    V2=$(echo "$RESULTS" | grep "Library V2" | awk '{print $7}')
-    V3=$(echo "$RESULTS" | grep "Library V3" | awk '{print $7}')
-    TBB=$(echo "$RESULTS" | grep "Intel TBB" | awk '{print $7}')
+    SEQ=$(extract_time "$RESULTS" "Sequential")
+    V2=$(extract_time "$RESULTS" "Library V2")
+    V3=$(extract_time "$RESULTS" "Library V3")
+    TBB=$(extract_time "$RESULTS" "Intel TBB")
     if [ -z "$TBB" ]; then TBB="N/A"; fi
     echo "| $B | $SEQ | $V2 | $V3 | $TBB |"
 done
@@ -68,10 +73,10 @@ echo "| :--- | :--- | :--- | :--- | :--- |"
 for U in "${UNIQUE_LIST[@]}"
 do
     RESULTS=$(./word_counter $TOTAL_WORDS $U $THREADS $BUCKETS)
-    SEQ=$(echo "$RESULTS" | grep "Sequential" | awk '{print $7}')
-    V2=$(echo "$RESULTS" | grep "Library V2" | awk '{print $7}')
-    V3=$(echo "$RESULTS" | grep "Library V3" | awk '{print $7}')
-    TBB=$(echo "$RESULTS" | grep "Intel TBB" | awk '{print $7}')
+    SEQ=$(extract_time "$RESULTS" "Sequential")
+    V2=$(extract_time "$RESULTS" "Library V2")
+    V3=$(extract_time "$RESULTS" "Library V3")
+    TBB=$(extract_time "$RESULTS" "Intel TBB")
     if [ -z "$TBB" ]; then TBB="N/A"; fi
     echo "| $U | $SEQ | $V2 | $V3 | $TBB |"
 done

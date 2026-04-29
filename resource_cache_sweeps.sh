@@ -3,9 +3,16 @@
 # Ensure we are built
 make resource_cache > /dev/null
 
-# Helper function to extract time
-extract_time() {
-    echo "$1" | grep "$2" | head -1 | awk -F'Time: ' '{print $2}' | awk '{print $1}' | sed 's/s//'
+# Helper function to extract time and verification status
+extract_result() {
+    LINE=$(echo "$1" | grep "$2" | head -1)
+    TIME=$(echo "$LINE" | awk -F'Time: ' '{print $2}' | awk '{print $1}' | sed 's/s//')
+    VERIFY=$(echo "$LINE" | awk -F'Verification: ' '{print $2}' | awk '{print $1}')
+    if [ "$VERIFY" == "PASSED" ]; then
+        echo "$TIME (P)"
+    else
+        echo "$TIME (F)"
+    fi
 }
 
 # --- EXPERIMENT 1: THREAD SCALABILITY ---
@@ -23,12 +30,11 @@ echo "| :--- | :--- | :--- | :--- | :--- | :--- |"
 for T in "${THREADS[@]}"
 do
     RESULTS=$(./resource_cache $OPS $T $BUCKETS $UNIQUE)
-    SEQ=$(extract_time "$RESULTS" "Sequential")
-    V2=$(extract_time "$RESULTS" "Library V2")
-    V3=$(extract_time "$RESULTS" "Library V3")
-    V6=$(extract_time "$RESULTS" "Library V6")
-    TBB=$(extract_time "$RESULTS" "Intel TBB")
-    if [ -z "$TBB" ]; then TBB="N/A"; fi
+    SEQ=$(extract_result "$RESULTS" "Sequential")
+    V2=$(extract_result "$RESULTS" "Library V2")
+    V3=$(extract_result "$RESULTS" "Library V3")
+    V6=$(extract_result "$RESULTS" "Library V6")
+    TBB=$(extract_result "$RESULTS" "Intel TBB")
     echo "| $T | $SEQ | $V2 | $V3 | $V6 | $TBB |"
 done
 
@@ -49,12 +55,11 @@ echo "| :--- | :--- | :--- | :--- | :--- | :--- |"
 for B in "${BUCKET_LIST[@]}"
 do
     RESULTS=$(./resource_cache $OPS $THREADS $B $UNIQUE)
-    SEQ=$(extract_time "$RESULTS" "Sequential")
-    V2=$(extract_time "$RESULTS" "Library V2")
-    V3=$(extract_time "$RESULTS" "Library V3")
-    V6=$(extract_time "$RESULTS" "Library V6")
-    TBB=$(extract_time "$RESULTS" "Intel TBB")
-    if [ -z "$TBB" ]; then TBB="N/A"; fi
+    SEQ=$(extract_result "$RESULTS" "Sequential")
+    V2=$(extract_result "$RESULTS" "Library V2")
+    V3=$(extract_result "$RESULTS" "Library V3")
+    V6=$(extract_result "$RESULTS" "Library V6")
+    TBB=$(extract_result "$RESULTS" "Intel TBB")
     echo "| $B | $SEQ | $V2 | $V3 | $V6 | $TBB |"
 done
 
@@ -75,12 +80,11 @@ echo "| :--- | :--- | :--- | :--- | :--- | :--- |"
 for U in "${UNIQUE_LIST[@]}"
 do
     RESULTS=$(./resource_cache $OPS $THREADS $BUCKETS $U)
-    SEQ=$(extract_time "$RESULTS" "Sequential")
-    V2=$(extract_time "$RESULTS" "Library V2")
-    V3=$(extract_time "$RESULTS" "Library V3")
-    V6=$(extract_time "$RESULTS" "Library V6")
-    TBB=$(extract_time "$RESULTS" "Intel TBB")
-    if [ -z "$TBB" ]; then TBB="N/A"; fi
+    SEQ=$(extract_result "$RESULTS" "Sequential")
+    V2=$(extract_result "$RESULTS" "Library V2")
+    V3=$(extract_result "$RESULTS" "Library V3")
+    V6=$(extract_result "$RESULTS" "Library V6")
+    TBB=$(extract_result "$RESULTS" "Intel TBB")
     echo "| $U | $SEQ | $V2 | $V3 | $V6 | $TBB |"
 done
 
@@ -101,12 +105,11 @@ echo "| :--- | :--- | :--- | :--- | :--- | :--- |"
 for S in "${SIZE_LIST[@]}"
 do
     RESULTS=$(./resource_cache $S $THREADS $BUCKETS $UNIQUE)
-    SEQ=$(extract_time "$RESULTS" "Sequential")
-    V2=$(extract_time "$RESULTS" "Library V2")
-    V3=$(extract_time "$RESULTS" "Library V3")
-    V6=$(extract_time "$RESULTS" "Library V6")
-    TBB=$(extract_time "$RESULTS" "Intel TBB")
-    if [ -z "$TBB" ]; then TBB="N/A"; fi
+    SEQ=$(extract_result "$RESULTS" "Sequential")
+    V2=$(extract_result "$RESULTS" "Library V2")
+    V3=$(extract_result "$RESULTS" "Library V3")
+    V6=$(extract_result "$RESULTS" "Library V6")
+    TBB=$(extract_result "$RESULTS" "Intel TBB")
     echo "| $S | $SEQ | $V2 | $V3 | $V6 | $TBB |"
 done
 

@@ -3,9 +3,16 @@
 # Ensure we are built
 make parallel_bfs > /dev/null
 
-# Helper function to extract time
-extract_time() {
-    echo "$1" | grep "$2" | head -1 | awk -F'Time: ' '{print $2}' | awk '{print $1}' | sed 's/s//'
+# Helper function to extract time and verification status
+extract_result() {
+    LINE=$(echo "$1" | grep "$2" | head -1)
+    TIME=$(echo "$LINE" | awk -F'Time: ' '{print $2}' | awk '{print $1}' | sed 's/s//')
+    VERIFY=$(echo "$LINE" | awk -F'Verification: ' '{print $2}' | awk '{print $1}')
+    if [ "$VERIFY" == "PASSED" ]; then
+        echo "$TIME (P)"
+    else
+        echo "$TIME (F)"
+    fi
 }
 
 # --- EXPERIMENT 1: THREAD SCALABILITY ---
@@ -23,12 +30,11 @@ echo "| :--- | :--- | :--- | :--- | :--- | :--- |"
 for T in "${THREADS[@]}"
 do
     RESULTS=$(./parallel_bfs $NODES $EDGES $T $BUCKETS)
-    SEQ=$(extract_time "$RESULTS" "Sequential")
-    V2=$(extract_time "$RESULTS" "Library V2")
-    V3=$(extract_time "$RESULTS" "Library V3")
-    V6=$(extract_time "$RESULTS" "Library V6")
-    TBB=$(extract_time "$RESULTS" "Intel TBB")
-    if [ -z "$TBB" ]; then TBB="N/A"; fi
+    SEQ=$(extract_result "$RESULTS" "Sequential")
+    V2=$(extract_result "$RESULTS" "Library V2")
+    V3=$(extract_result "$RESULTS" "Library V3")
+    V6=$(extract_result "$RESULTS" "Library V6")
+    TBB=$(extract_result "$RESULTS" "Intel TBB")
     echo "| $T | $SEQ | $V2 | $V3 | $V6 | $TBB |"
 done
 
@@ -49,12 +55,11 @@ echo "| :--- | :--- | :--- | :--- | :--- | :--- |"
 for B in "${BUCKET_LIST[@]}"
 do
     RESULTS=$(./parallel_bfs $NODES $EDGES $THREADS $B)
-    SEQ=$(extract_time "$RESULTS" "Sequential")
-    V2=$(extract_time "$RESULTS" "Library V2")
-    V3=$(extract_time "$RESULTS" "Library V3")
-    V6=$(extract_time "$RESULTS" "Library V6")
-    TBB=$(extract_time "$RESULTS" "Intel TBB")
-    if [ -z "$TBB" ]; then TBB="N/A"; fi
+    SEQ=$(extract_result "$RESULTS" "Sequential")
+    V2=$(extract_result "$RESULTS" "Library V2")
+    V3=$(extract_result "$RESULTS" "Library V3")
+    V6=$(extract_result "$RESULTS" "Library V6")
+    TBB=$(extract_result "$RESULTS" "Intel TBB")
     echo "| $B | $SEQ | $V2 | $V3 | $V6 | $TBB |"
 done
 
@@ -75,12 +80,11 @@ echo "| :--- | :--- | :--- | :--- | :--- | :--- |"
 for D in "${DENSITY_LIST[@]}"
 do
     RESULTS=$(./parallel_bfs $NODES $D $THREADS $BUCKETS)
-    SEQ=$(extract_time "$RESULTS" "Sequential")
-    V2=$(extract_time "$RESULTS" "Library V2")
-    V3=$(extract_time "$RESULTS" "Library V3")
-    V6=$(extract_time "$RESULTS" "Library V6")
-    TBB=$(extract_time "$RESULTS" "Intel TBB")
-    if [ -z "$TBB" ]; then TBB="N/A"; fi
+    SEQ=$(extract_result "$RESULTS" "Sequential")
+    V2=$(extract_result "$RESULTS" "Library V2")
+    V3=$(extract_result "$RESULTS" "Library V3")
+    V6=$(extract_result "$RESULTS" "Library V6")
+    TBB=$(extract_result "$RESULTS" "Intel TBB")
     echo "| $D | $SEQ | $V2 | $V3 | $V6 | $TBB |"
 done
 
@@ -101,12 +105,11 @@ echo "| :--- | :--- | :--- | :--- | :--- | :--- |"
 for N in "${NODE_LIST[@]}"
 do
     RESULTS=$(./parallel_bfs $N $EDGES $THREADS $BUCKETS)
-    SEQ=$(extract_time "$RESULTS" "Sequential")
-    V2=$(extract_time "$RESULTS" "Library V2")
-    V3=$(extract_time "$RESULTS" "Library V3")
-    V6=$(extract_time "$RESULTS" "Library V6")
-    TBB=$(extract_time "$RESULTS" "Intel TBB")
-    if [ -z "$TBB" ]; then TBB="N/A"; fi
+    SEQ=$(extract_result "$RESULTS" "Sequential")
+    V2=$(extract_result "$RESULTS" "Library V2")
+    V3=$(extract_result "$RESULTS" "Library V3")
+    V6=$(extract_result "$RESULTS" "Library V6")
+    TBB=$(extract_result "$RESULTS" "Intel TBB")
     echo "| $N | $SEQ | $V2 | $V3 | $V6 | $TBB |"
 done
 

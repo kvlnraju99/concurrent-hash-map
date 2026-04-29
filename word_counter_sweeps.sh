@@ -17,47 +17,46 @@ THREADS=(1 2 4 8 16 32 64)
 echo "### EXPERIMENT 1: THREAD SCALABILITY"
 echo "Words: $TOTAL_WORDS | Unique: $UNIQUE_WORDS | Buckets: $BUCKETS"
 echo ""
-echo "| Threads | Sequential | V2 Static | V3 Dynamic | V3 Optimized | V3 Ptr Swap | Intel TBB |"
-echo "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |"
+echo "| Threads | Sequential | V2 Static | V3 Dynamic | V6 Segmented | Intel TBB |"
+echo "| :--- | :--- | :--- | :--- | :--- | :--- |"
 
 for T in "${THREADS[@]}"
 do
     RESULTS=$(./word_counter $TOTAL_WORDS $UNIQUE_WORDS $T $BUCKETS)
     SEQ=$(extract_time "$RESULTS" "Sequential")
     V2=$(extract_time "$RESULTS" "Library V2")
-    V3D=$(extract_time "$RESULTS" "Library V3 (Dynamic)")
-    V3O=$(extract_time "$RESULTS" "Library V3 (Optimized)")
-    V3P=$(extract_time "$RESULTS" "Library V3 (Ptr Swap)")
+    V3=$(extract_time "$RESULTS" "Library V3")
+    V6=$(extract_time "$RESULTS" "Library V6")
     TBB=$(extract_time "$RESULTS" "Intel TBB")
     if [ -z "$TBB" ]; then TBB="N/A"; fi
-    echo "| $T | $SEQ | $V2 | $V3D | $V3O | $V3P | $TBB |"
+    echo "| $T | $SEQ | $V2 | $V3 | $V6 | $TBB |"
 done
 
 echo -e "\n---\n"
 
 # --- EXPERIMENT 2: BUCKET SENSITIVITY ---
+# Focusing on the dynamic versions (V3, V6) and comparing with TBB
 TOTAL_WORDS=5000000
 UNIQUE_WORDS=100000
 THREADS=64
-BUCKET_LIST=(10000 25000 50000 100000 250000 500000)
+BUCKET_LIST=(1000 5000 10000 50000 100000 500000)
 
 echo "### EXPERIMENT 2: BUCKET SENSITIVITY"
 echo "Words: $TOTAL_WORDS | Unique: $UNIQUE_WORDS | Threads: $THREADS"
 echo ""
-echo "| Initial Buckets | Sequential | V2 Static | V3 Dynamic | V3 Optimized | V3 Ptr Swap | Intel TBB |"
-echo "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |"
+echo "| Initial Buckets | Sequential | V2 Static | V3 Dynamic | V6 Segmented | Intel TBB |"
+echo "| :--- | :--- | :--- | :--- | :--- | :--- |"
 
 for B in "${BUCKET_LIST[@]}"
 do
     RESULTS=$(./word_counter $TOTAL_WORDS $UNIQUE_WORDS $THREADS $B)
     SEQ=$(extract_time "$RESULTS" "Sequential")
     V2=$(extract_time "$RESULTS" "Library V2")
-    V3D=$(extract_time "$RESULTS" "Library V3 (Dynamic)")
-    V3O=$(extract_time "$RESULTS" "Library V3 (Optimized)")
-    V3P=$(extract_time "$RESULTS" "Library V3 (Ptr Swap)")
+    V3=$(extract_time "$RESULTS" "Library V3")
+    V6=$(extract_time "$RESULTS" "Library V6")
     TBB=$(extract_time "$RESULTS" "Intel TBB")
     if [ -z "$TBB" ]; then TBB="N/A"; fi
-    echo "| $B | $SEQ | $V2 | $V3D | $V3O | $V3P | $TBB |"
+    echo "| $B | $SEQ | $V2 | $V3 | $V6 | $TBB |"
 done
 
 echo -e "\n---\n"
@@ -71,20 +70,19 @@ UNIQUE_LIST=(1000 5000 10000 50000 100000 500000)
 echo "### EXPERIMENT 3: CONTENTION INTENSITY"
 echo "Words: $TOTAL_WORDS | Threads: $THREADS | Buckets: $BUCKETS"
 echo ""
-echo "| Unique Words | Sequential | V2 Static | V3 Dynamic | V3 Optimized | V3 Ptr Swap | Intel TBB |"
-echo "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |"
+echo "| Unique Words | Sequential | V2 Static | V3 Dynamic | V6 Segmented | Intel TBB |"
+echo "| :--- | :--- | :--- | :--- | :--- | :--- |"
 
 for U in "${UNIQUE_LIST[@]}"
 do
     RESULTS=$(./word_counter $TOTAL_WORDS $U $THREADS $BUCKETS)
     SEQ=$(extract_time "$RESULTS" "Sequential")
     V2=$(extract_time "$RESULTS" "Library V2")
-    V3D=$(extract_time "$RESULTS" "Library V3 (Dynamic)")
-    V3O=$(extract_time "$RESULTS" "Library V3 (Optimized)")
-    V3P=$(extract_time "$RESULTS" "Library V3 (Ptr Swap)")
+    V3=$(extract_time "$RESULTS" "Library V3")
+    V6=$(extract_time "$RESULTS" "Library V6")
     TBB=$(extract_time "$RESULTS" "Intel TBB")
     if [ -z "$TBB" ]; then TBB="N/A"; fi
-    echo "| $U | $SEQ | $V2 | $V3D | $V3O | $V3P | $TBB |"
+    echo "| $U | $SEQ | $V2 | $V3 | $V6 | $TBB |"
 done
 
 echo ""

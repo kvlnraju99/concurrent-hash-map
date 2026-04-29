@@ -85,5 +85,29 @@ do
     echo "| $U | $SEQ | $V2 | $V3 | $V6 | $TBB |"
 done
 
+# --- EXPERIMENT 4: PROBLEM SIZE SCALING ---
+THREADS=64
+BUCKETS=131071
+UNIQUE_WORDS=100000
+SIZE_LIST=(1000000 5000000 10000000 20000000 50000000)
+
+echo "### EXPERIMENT 4: PROBLEM SIZE SCALING"
+echo "Threads: $THREADS | Unique: $UNIQUE_WORDS | Buckets: $BUCKETS"
+echo ""
+echo "| Total Words | Sequential | V2 Static | V3 Dynamic | V6 Segmented | Intel TBB |"
+echo "| :--- | :--- | :--- | :--- | :--- | :--- |"
+
+for S in "${SIZE_LIST[@]}"
+do
+    RESULTS=$(./word_counter $S $UNIQUE_WORDS $THREADS $BUCKETS)
+    SEQ=$(extract_time "$RESULTS" "Sequential")
+    V2=$(extract_time "$RESULTS" "Library V2")
+    V3=$(extract_time "$RESULTS" "Library V3")
+    V6=$(extract_time "$RESULTS" "Library V6")
+    TBB=$(extract_time "$RESULTS" "Intel TBB")
+    if [ -z "$TBB" ]; then TBB="N/A"; fi
+    echo "| $S | $SEQ | $V2 | $V3 | $V6 | $TBB |"
+done
+
 echo ""
 echo "All Sweeps Complete."

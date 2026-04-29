@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include "concurrent_hash_map.h"
 #include "concurrent_hash_map_v2.h"
+#include "concurrent_hash_map_v3_opt.h"
 #ifdef USE_TBB
 #include "tbb_wrapper.h"
 #endif
@@ -80,6 +81,7 @@ int main(int argc, char* argv[]) {
     if (argc > 4) bucket_count = std::stoull(argv[4]);
 
     init_audit(num_threads);
+    init_opt_audit(num_threads);
 
     std::cout << "==========================================================" << std::endl;
     std::cout << " APPLICATION: PARALLEL WORD FREQUENCY COUNTER" << std::endl;
@@ -93,6 +95,7 @@ int main(int argc, char* argv[]) {
     run_sequential_word_counter(corpus);
     run_word_counter<ConcurrentHashMapV2<std::string, int>>("Library V2 (Static)", corpus, num_threads, bucket_count);
     run_word_counter<ConcurrentHashMap<std::string, int>>("Library V3 (Dynamic)", corpus, num_threads, bucket_count);
+    run_word_counter<ConcurrentHashMapV3Opt<std::string, int>>("Library V3 (Optimized)", corpus, num_threads, bucket_count);
 #ifdef USE_TBB
     run_word_counter<TBBHashMapWrapper<std::string, int>>("Intel TBB (Industry)", corpus, num_threads, bucket_count);
 #endif
@@ -100,6 +103,7 @@ int main(int argc, char* argv[]) {
     std::cout << "==========================================================" << std::endl;
 
     report_audit();
+    report_opt_audit();
 
     return 0;
 }

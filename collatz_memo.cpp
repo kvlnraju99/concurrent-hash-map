@@ -78,7 +78,9 @@ int main(int argc, char* argv[]) {
     }
     double time_seq = omp_get_wtime() - start;
     std::cout << std::left << std::setw(23) << "Sequential (1 Core)" << " | Time: " << std::fixed << std::setprecision(4) << time_seq << "s" 
-              << " | Cache Size: " << seq_cache.size() << std::endl;
+              << " | Verification: PASSED" << " | Cache Size: " << seq_cache.size() << std::endl;
+
+    size_t expected_size = seq_cache.size();
 
     // --- 3. LIBRARY V2 (Static) ---
     ConcurrentHashMapV2<long long, long long> v2_cache(bucket_count);
@@ -88,8 +90,9 @@ int main(int argc, char* argv[]) {
         get_collatz_with_cache(i, v2_cache);
     }
     double time_v2 = omp_get_wtime() - start;
+    std::string v2_v = (v2_cache.size() >= expected_size) ? "PASSED" : "FAILED";
     std::cout << std::left << std::setw(23) << "Library V2 (Static)" << " | Time: " << std::fixed << std::setprecision(4) << time_v2 << "s"
-              << " | Cache Size: " << v2_cache.size() << std::endl;
+              << " | Verification: " << v2_v << " | Cache Size: " << v2_cache.size() << std::endl;
 
     // --- 4. LIBRARY V3 (Dynamic) ---
     ConcurrentHashMap<long long, long long> v3_cache(bucket_count);
@@ -99,8 +102,9 @@ int main(int argc, char* argv[]) {
         get_collatz_with_cache(i, v3_cache);
     }
     double time_v3 = omp_get_wtime() - start;
+    std::string v3_v = (v3_cache.size() >= expected_size) ? "PASSED" : "FAILED";
     std::cout << std::left << std::setw(23) << "Library V3 (Dynamic)" << " | Time: " << std::fixed << std::setprecision(4) << time_v3 << "s"
-              << " | Cache Size: " << v3_cache.size() << std::endl;
+              << " | Verification: " << v3_v << " | Cache Size: " << v3_cache.size() << std::endl;
 
     // --- 5. LIBRARY V6 (Segmented) ---
     ConcurrentHashMapV6<long long, long long> v6_cache(bucket_count);
@@ -110,8 +114,9 @@ int main(int argc, char* argv[]) {
         get_collatz_with_cache(i, v6_cache);
     }
     double time_v6 = omp_get_wtime() - start;
+    std::string v6_v = (v6_cache.size() >= expected_size) ? "PASSED" : "FAILED";
     std::cout << std::left << std::setw(23) << "Library V6 (Segmented)" << " | Time: " << std::fixed << std::setprecision(4) << time_v6 << "s"
-              << " | Cache Size: " << v6_cache.size() << std::endl;
+              << " | Verification: " << v6_v << " | Cache Size: " << v6_cache.size() << std::endl;
 
 #ifdef USE_TBB
     // --- 7. INTEL TBB (Industry) ---
@@ -122,8 +127,9 @@ int main(int argc, char* argv[]) {
         get_collatz_with_cache(i, tbb_cache);
     }
     double time_tbb = omp_get_wtime() - start;
+    std::string tbb_v = (tbb_cache.size() >= expected_size) ? "PASSED" : "FAILED";
     std::cout << std::left << std::setw(23) << "Intel TBB (Industry)" << " | Time: " << std::fixed << std::setprecision(4) << time_tbb << "s"
-              << " | Cache Size: " << tbb_cache.size() << std::endl;
+              << " | Verification: " << tbb_v << " | Cache Size: " << tbb_cache.size() << std::endl;
 #endif
 
     std::cout << "----------------------------------------------------------" << std::endl;

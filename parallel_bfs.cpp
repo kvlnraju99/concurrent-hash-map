@@ -32,7 +32,7 @@ Graph generate_random_graph(int num_nodes, int edges_per_node) {
     return g;
 }
 
-double run_sequential_bfs(const Graph& g, int start_node) {
+int run_sequential_bfs(const Graph& g, int start_node) {
     std::unordered_map<int, bool> visited;
     std::queue<int> q;
     
@@ -53,13 +53,13 @@ double run_sequential_bfs(const Graph& g, int start_node) {
     double end = omp_get_wtime();
     
     std::cout << std::left << std::setw(23) << "Sequential (1 Core)" 
-              << " | Threads: 1  | Time: " << std::fixed << std::setprecision(4) << (end - start) << "s"
-              << " | Visited: " << visited.size() << std::endl;
-    return (end - start);
+              << " | Time: " << std::fixed << std::setprecision(4) << (end - start) << "s"
+              << " | Verification: PASSED" << " | Visited: " << visited.size() << std::endl;
+    return visited.size();
 }
 
 template <typename MapType>
-void run_bfs(const std::string& name, const Graph& g, int start_node, int num_threads, size_t bucket_count) {
+void run_bfs(const std::string& name, const Graph& g, int start_node, int num_threads, size_t bucket_count, int expected_visited) {
     MapType visited(bucket_count);
     std::vector<int> current_frontier;
     current_frontier.push_back(start_node);
@@ -72,7 +72,7 @@ void run_bfs(const std::string& name, const Graph& g, int start_node, int num_th
         {
             std::vector<int> local_frontier;
             #pragma omp for nowait
-            for (size_t i = 0; i < current_frontier.size(); ++i) {
+            for (size_t i = 0; i < (int)current_frontier.size(); ++i) {
                 int curr = current_frontier[i];
                 for (int neighbor : g.adj[curr]) {
                     bool already_visited = false;
@@ -92,10 +92,12 @@ void run_bfs(const std::string& name, const Graph& g, int start_node, int num_th
     }
     double end = omp_get_wtime();
 
+    int visited_count = visited.size();
+    std::string verify = (visited_count == expected_visited) ? "PASSED" : "FAILED";
+
     std::cout << std::left << std::setw(23) << name 
-              << " | Threads: " << std::setw(2) << num_threads 
               << " | Time: " << std::fixed << std::setprecision(4) << (end - start) << "s"
-              << " | Visited: " << visited.size() << std::endl;
+              << " | Verification: " << verify << " | Visited: " << visited_count << std::endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -119,12 +121,12 @@ int main(int argc, char* argv[]) {
     Graph g = generate_random_graph(num_nodes, edges_per_node);
     std::cout << "Graph generated. Starting BFS benchmarks...\n" << std::endl;
 
-    run_sequential_bfs(g, 0);
-    run_bfs<ConcurrentHashMapV2<int, bool>>("Library V2 (Static)", g, 0, num_threads, bucket_count);
-    run_bfs<ConcurrentHashMap<int, bool>>("Library V3 (Dynamic)", g, 0, num_threads, bucket_count);
-    run_bfs<ConcurrentHashMapV6<int, bool>>("Library V6 (Segmented)", g, 0, num_threads, bucket_count);
+    int expected = run_sequential_bfs(g, 0);
+    run_bfs<ConcurrentHashMapV2<int, bool>>("Library V2 (Static)", g, 0, num_threads, bucket_count, expected);
+    run_bfs<ConcurrentHashMap<int, bool>>("Library V3 (Dynamic)", g, 0, num_threads, bucket_count, expected);
+    run_bfs<ConcurrentHashMapV6<int, bool>>("Library V6 (Segmented)", g, 0, num_threads, bucket_count, expected);
 #ifdef USE_TBB
-    run_bfs<TBBHashMapWrapper<int, bool>>("Intel TBB (Industry)", g, 0, num_threads, bucket_count);
+    run_bfs<TBBHashMapWrapper<int, bool>>("Intel TBB (Industry)", g, 0, num_threads, bucket_count, expected);
 #endif
 
     std::cout << "==========================================================" << std::endl;

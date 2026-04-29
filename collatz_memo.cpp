@@ -3,11 +3,9 @@
 #include <iomanip>
 #include <omp.h>
 #include <functional>
-#include "naive_map.h"
+#include <unordered_map>
 #include "concurrent_hash_map.h"
 #include "concurrent_hash_map_v2.h"
-#include "concurrent_hash_map_v4.h"
-#include "concurrent_hash_map_v5.h"
 #ifdef USE_TBB
 #include "tbb_wrapper.h"
 #endif
@@ -23,20 +21,26 @@ long long get_collatz_no_cache(long long n) {
     return count;
 }
 
-// Collatz with Concurrent Cache
+// Sequential Collatz with Cache
+long long get_collatz_sequential(long long n, std::unordered_map<long long, long long>& cache) {
+    if (n == 1) return 0;
+    if (cache.count(n)) return cache[n];
+    
+    long long next_n = (n % 2 == 0) ? (n / 2) : (3 * n + 1);
+    long long result = 1 + get_collatz_sequential(next_n, cache);
+    cache[n] = result;
+    return result;
+}
+
+// Parallel Collatz with Concurrent Cache
 template <typename MapType>
 long long get_collatz_with_cache(long long n, MapType& cache) {
     if (n == 1) return 0;
-    
-    // Check cache
     auto cached = cache.get(n);
     if (cached) return *cached;
 
-    // Recursive-style calculation
     long long next_n = (n % 2 == 0) ? (n / 2) : (3 * n + 1);
     long long result = 1 + get_collatz_with_cache(next_n, cache);
-    
-    // Save to cache
     cache.put(n, result);
     return result;
 }
@@ -57,24 +61,23 @@ int main(int argc, char* argv[]) {
 
     double start;
 
-    // --- 1. NO CACHE (Baseline) ---
+    // --- 1. NO CACHE (Brute Force) ---
     start = omp_get_wtime();
     #pragma omp parallel for num_threads(num_threads)
     for (long long i = 1; i <= upper_limit; ++i) {
         get_collatz_no_cache(i);
     }
-    std::cout << std::left << std::setw(20) << "No Cache" << " | Time: " << std::fixed << std::setprecision(4) << (omp_get_wtime() - start) << "s" << std::endl;
+    std::cout << std::left << std::setw(20) << "No Cache (Parallel)" << " | Time: " << std::fixed << std::setprecision(4) << (omp_get_wtime() - start) << "s" << std::endl;
 
-    // --- 2. NAIVE CACHE (Global Lock) ---
-    NaiveHashMap<long long, long long> naive_cache(bucket_count);
+    // --- 2. SEQUENTIAL CACHE (Baseline) ---
+    std::unordered_map<long long, long long> seq_cache;
     start = omp_get_wtime();
-    #pragma omp parallel for num_threads(num_threads)
     for (long long i = 1; i <= upper_limit; ++i) {
-        get_collatz_with_cache(i, naive_cache);
+        get_collatz_sequential(i, seq_cache);
     }
-    double time_naive = omp_get_wtime() - start;
-    std::cout << std::left << std::setw(20) << "Naive Cache" << " | Time: " << std::fixed << std::setprecision(4) << time_naive << "s" 
-              << " | Cache Size: " << naive_cache.size() << std::endl;
+    double time_seq = omp_get_wtime() - start;
+    std::cout << std::left << std::setw(20) << "Sequential (1 Core)" << " | Time: " << std::fixed << std::setprecision(4) << time_seq << "s" 
+              << " | Cache Size: " << seq_cache.size() << std::endl;
 
     // --- 3. LIBRARY V2 (Static) ---
     ConcurrentHashMapV2<long long, long long> v2_cache(bucket_count);
@@ -112,8 +115,8 @@ int main(int argc, char* argv[]) {
 #endif
 
     std::cout << "----------------------------------------------------------" << std::endl;
-    std::cout << "Speedup (V3 vs Naive): " << (time_naive / time_v3) << "x" << std::endl;
-    std::cout << "Speedup (V3 vs V2):    " << (time_v2 / time_v3) << "x" << std::endl;
+    std::cout << "Speedup (V3 vs Seq): " << (time_seq / time_v3) << "x" << std::endl;
+    std::cout << "Speedup (V3 vs V2):  " << (time_v2 / time_v3) << "x" << std::endl;
 
     return 0;
 }

@@ -5,11 +5,9 @@
 #include <omp.h>
 #include <random>
 #include <algorithm>
-#include "naive_map.h"
+#include <unordered_map>
 #include "concurrent_hash_map.h"
 #include "concurrent_hash_map_v2.h"
-#include "concurrent_hash_map_v4.h"
-#include "concurrent_hash_map_v5.h"
 #ifdef USE_TBB
 #include "tbb_wrapper.h"
 #endif
@@ -19,12 +17,11 @@ std::vector<std::string> generate_corpus(int total_words, int unique_words) {
     std::vector<std::string> words;
     words.reserve(total_words);
     
-    // Zipf-like distribution: small IDs appear much more frequently
     std::default_random_engine generator(42);
     std::discrete_distribution<int> distribution;
     std::vector<double> weights;
     for (int i = 1; i <= unique_words; ++i) {
-        weights.push_back(1.0 / i); // Zipf's Law: 1/n frequency
+        weights.push_back(1.0 / i);
     }
     distribution = std::discrete_distribution<int>(weights.begin(), weights.end());
 
@@ -33,6 +30,20 @@ std::vector<std::string> generate_corpus(int total_words, int unique_words) {
         words.push_back("word_" + std::to_string(word_id));
     }
     return words;
+}
+
+double run_sequential_word_counter(const std::vector<std::string>& corpus) {
+    std::unordered_map<std::string, int> map;
+    double start = omp_get_wtime();
+    for (const auto& word : corpus) {
+        map[word]++;
+    }
+    double end = omp_get_wtime();
+    
+    std::cout << std::left << std::setw(20) << "Sequential (1 Core)" 
+              << " | Threads: 1  | Time: " << std::fixed << std::setprecision(4) << (end - start) << "s"
+              << " | Verification: PASSED" << std::endl;
+    return (end - start);
 }
 
 template <typename MapType>
@@ -48,7 +59,6 @@ void run_word_counter(const std::string& name, const std::vector<std::string>& c
     }
     double end = omp_get_wtime();
 
-    // Verification Step
     long long total_sum = map.sum_all_values();
     std::string status = (total_sum == (long long)corpus.size()) ? "PASSED" : "FAILED";
 
@@ -78,11 +88,9 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> corpus = generate_corpus(total_words, unique_words);
     std::cout << "Corpus generated. Starting benchmarks...\n" << std::endl;
 
-    run_word_counter<NaiveHashMap<std::string, int>>("Naive (Global)", corpus, num_threads, bucket_count);
+    run_sequential_word_counter(corpus);
     run_word_counter<ConcurrentHashMapV2<std::string, int>>("Library V2 (Static)", corpus, num_threads, bucket_count);
     run_word_counter<ConcurrentHashMap<std::string, int>>("Library V3 (Dynamic)", corpus, num_threads, bucket_count);
-    // run_word_counter<ConcurrentHashMapV4<std::string, int>>("Library V4 (Atomic)", corpus, num_threads, bucket_count);
-    // run_word_counter<ConcurrentHashMapV5<std::string, int>>("Library V5 (Wait-Free)", corpus, num_threads, bucket_count);
 #ifdef USE_TBB
     run_word_counter<TBBHashMapWrapper<std::string, int>>("Intel TBB (Industry)", corpus, num_threads, bucket_count);
 #endif

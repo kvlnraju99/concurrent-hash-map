@@ -6,8 +6,6 @@
 #include <optional>
 #include <functional>
 #include <atomic>
-#include <chrono>
-#include <iostream>
 #include <omp.h>
 
 /**
@@ -19,8 +17,12 @@ struct SpinlockPtr {
     void unlock() { flag.clear(std::memory_order_release); }
 };
 
+#ifdef AUDIT_ENABLED
+#include <chrono>
+#include <iostream>
+
 /**
- * @brief Diagnostic Audit
+ * @brief Diagnostic Audit — only compiled when AUDIT_ENABLED is defined.
  */
 struct ThreadAuditPtr {
     long long global_lock_wait_ns{0};
@@ -55,6 +57,10 @@ inline void report_ptr_audit() {
     std::cout << "4. Stale-Array Retries:    " << total_retries << std::endl;
     std::cout << "-------------------------------------------------------------------" << std::endl;
 }
+#else
+inline void init_ptr_audit(int) {}
+inline void report_ptr_audit() {}
+#endif
 
 template <typename K, typename V>
 class ConcurrentHashMapV3Ptr {
@@ -76,9 +82,7 @@ private:
             buckets.resize(n);
             for (size_t i = 0; i < n; ++i) buckets[i] = new Bucket();
         }
-        // NOTE: Destructor intentionally does NOT free nodes.
-        // Nodes are migrated to the new array during resize,
-        // so only the Bucket shells are freed here.
+        // Destructor frees bucket shells only — nodes are migrated during resize
         ~BucketArray() {
             for (auto b : buckets) {
                 delete b;
@@ -88,88 +92,60 @@ private:
 
     std::atomic<BucketArray*> current_array;
     std::mutex resize_mutex; 
-    const int THRESHOLD = 5; // Local chain length threshold for resizing
-
-    /**
-     * @brief Epoch-based active reader counter.
-     * Resize waits until all threads that loaded the old pointer have finished
-     * their critical section. Each thread increments before locking a bucket
-     * and decrements after unlocking.
-     */
+    const int THRESHOLD = 5;
     std::atomic<int> active_readers{0};
 
     size_t get_bucket_index(const K& key, size_t count) const {
         return std::hash<K>{}(key) % count;
     }
 
-    /**
-     * @brief Resize with full safety: lock all old buckets, migrate nodes, swap pointer.
-     * 
-     * This version:
-     * 1. Acquires the resize mutex (only one resizer at a time)
-     * 2. Locks ALL buckets in the old array to quiesce concurrent writers
-     * 3. Copies all nodes to the new array
-     * 4. Atomically swaps the pointer
-     * 5. Unlocks all old buckets
-     * 6. Waits for active_readers to drain, then frees the old array
-     */
     void check_and_resize(size_t triggering_count) {
-        // Only one thread can resize at a time
         if (!resize_mutex.try_lock()) return; 
         
         BucketArray* old_array = current_array.load(std::memory_order_acquire);
-        // Only resize if nobody has resized since we triggered
         if (old_array->count > triggering_count) {
             resize_mutex.unlock(); return;
         }
 
+#ifdef AUDIT_ENABLED
         int tid = omp_get_thread_num();
         auto start = std::chrono::high_resolution_clock::now();
+#endif
 
-        // Step 1: Lock ALL buckets in the old array to prevent concurrent modifications
-        for (size_t i = 0; i < old_array->count; ++i) {
+        for (size_t i = 0; i < old_array->count; ++i)
             old_array->buckets[i]->mtx.lock();
-        }
 
-        // Step 2: Build the new array by migrating nodes (move, don't copy)
         size_t new_count = old_array->count * 2;
         BucketArray* new_array = new BucketArray(new_count);
 
         for (size_t i = 0; i < old_array->count; ++i) {
             Node* curr = old_array->buckets[i]->head;
             while (curr) {
-                Node* next = curr->next; // save next before relinking
+                Node* next = curr->next;
                 size_t idx = get_bucket_index(curr->key, new_count);
                 curr->next = new_array->buckets[idx]->head;
                 new_array->buckets[idx]->head = curr;
                 curr = next;
             }
-            old_array->buckets[i]->head = nullptr; // detach from old array
+            old_array->buckets[i]->head = nullptr;
         }
 
-        // Step 3: Atomically swap the pointer
         current_array.store(new_array, std::memory_order_release);
 
-        // Step 4: Unlock all old buckets — threads waiting on them will
-        // see the stale array and retry with the new one
-        for (size_t i = 0; i < old_array->count; ++i) {
+        for (size_t i = 0; i < old_array->count; ++i)
             old_array->buckets[i]->mtx.unlock();
-        }
 
-        // Step 5: Wait for any threads that loaded the old pointer before
-        // the swap to finish their operations
-        while (active_readers.load(std::memory_order_acquire) > 0) {
-            // Spin-wait — resize is rare, so this is acceptable
-        }
+        while (active_readers.load(std::memory_order_acquire) > 0) {}
 
-        // Step 6: Safe to delete the old array shell (nodes were migrated)
         delete old_array;
 
+#ifdef AUDIT_ENABLED
         auto end = std::chrono::high_resolution_clock::now();
         if (g_ptr_audits) {
             g_ptr_audits[tid].resize_time_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
             g_ptr_audits[tid].resize_count++;
         }
+#endif
         resize_mutex.unlock();
     }
 
@@ -179,7 +155,6 @@ public:
     }
 
     ~ConcurrentHashMapV3Ptr() {
-        // Final cleanup: free all remaining nodes
         BucketArray* arr = current_array.load();
         for (auto b : arr->buckets) {
             Node* curr = b->head;
@@ -190,30 +165,32 @@ public:
     }
 
     void put(const K& key, const V& value) {
-        int tid = omp_get_thread_num();
-
         while (true) {
-            // Register as active reader before loading pointer
             active_readers.fetch_add(1, std::memory_order_acq_rel);
             BucketArray* active = current_array.load(std::memory_order_acquire);
             size_t idx = get_bucket_index(key, active->count);
             
+#ifdef AUDIT_ENABLED
+            int tid = omp_get_thread_num();
             auto b1 = std::chrono::high_resolution_clock::now();
+#endif
             active->buckets[idx]->mtx.lock();
+#ifdef AUDIT_ENABLED
             auto b2 = std::chrono::high_resolution_clock::now();
             if (g_ptr_audits && tid < g_ptr_max_threads)
                 g_ptr_audits[tid].bucket_lock_wait_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(b2 - b1).count();
+#endif
 
-            // Validate: did the array change while we waited for the lock?
             if (current_array.load(std::memory_order_acquire) != active) {
                 active->buckets[idx]->mtx.unlock();
                 active_readers.fetch_sub(1, std::memory_order_acq_rel);
+#ifdef AUDIT_ENABLED
                 if (g_ptr_audits && tid < g_ptr_max_threads)
                     g_ptr_audits[tid].retry_count++;
-                continue; // Retry with the new array
+#endif
+                continue;
             }
 
-            // Safe to proceed — we hold the bucket lock and the array is current
             Node* curr = active->buckets[idx]->head;
             int depth = 0;
             while (curr) {
@@ -234,25 +211,29 @@ public:
     }
 
     std::optional<V> get(const K& key) const {
-        int tid = omp_get_thread_num();
-
         while (true) {
             const_cast<std::atomic<int>&>(active_readers).fetch_add(1, std::memory_order_acq_rel);
             BucketArray* active = current_array.load(std::memory_order_acquire);
             size_t idx = get_bucket_index(key, active->count);
             
+#ifdef AUDIT_ENABLED
+            int tid = omp_get_thread_num();
             auto b1 = std::chrono::high_resolution_clock::now();
+#endif
             active->buckets[idx]->mtx.lock();
+#ifdef AUDIT_ENABLED
             auto b2 = std::chrono::high_resolution_clock::now();
             if (g_ptr_audits && tid < g_ptr_max_threads)
                 g_ptr_audits[tid].bucket_lock_wait_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(b2 - b1).count();
+#endif
 
-            // Validate array didn't change
             if (current_array.load(std::memory_order_acquire) != active) {
                 active->buckets[idx]->mtx.unlock();
                 const_cast<std::atomic<int>&>(active_readers).fetch_sub(1, std::memory_order_acq_rel);
+#ifdef AUDIT_ENABLED
                 if (g_ptr_audits && tid < g_ptr_max_threads)
                     g_ptr_audits[tid].retry_count++;
+#endif
                 continue;
             }
 
@@ -267,26 +248,31 @@ public:
         }
     }
 
-    void update(const K& key, std::function<V(std::optional<V>)> updater) {
-        int tid = omp_get_thread_num();
-
+    template<typename F>
+    void update(const K& key, F updater) {
         while (true) {
             active_readers.fetch_add(1, std::memory_order_acq_rel);
             BucketArray* active = current_array.load(std::memory_order_acquire);
             size_t idx = get_bucket_index(key, active->count);
             
+#ifdef AUDIT_ENABLED
+            int tid = omp_get_thread_num();
             auto b1 = std::chrono::high_resolution_clock::now();
+#endif
             active->buckets[idx]->mtx.lock();
+#ifdef AUDIT_ENABLED
             auto b2 = std::chrono::high_resolution_clock::now();
             if (g_ptr_audits && tid < g_ptr_max_threads)
                 g_ptr_audits[tid].bucket_lock_wait_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(b2 - b1).count();
+#endif
 
-            // Validate array didn't change
             if (current_array.load(std::memory_order_acquire) != active) {
                 active->buckets[idx]->mtx.unlock();
                 active_readers.fetch_sub(1, std::memory_order_acq_rel);
+#ifdef AUDIT_ENABLED
                 if (g_ptr_audits && tid < g_ptr_max_threads)
                     g_ptr_audits[tid].retry_count++;
+#endif
                 continue;
             }
 
@@ -294,7 +280,7 @@ public:
             int depth = 0;
             while (curr) {
                 depth++;
-                if (curr->key == key) { curr->value = updater(curr->value); active->buckets[idx]->mtx.unlock(); active_readers.fetch_sub(1, std::memory_order_acq_rel); return; }
+                if (curr->key == key) { curr->value = updater(std::optional<V>(curr->value)); active->buckets[idx]->mtx.unlock(); active_readers.fetch_sub(1, std::memory_order_acq_rel); return; }
                 curr = curr->next;
             }
             active->buckets[idx]->head = new Node(key, updater(std::nullopt), active->buckets[idx]->head);
@@ -309,7 +295,7 @@ public:
         }
     }
 
-    size_t size() const { return 0; } // We no longer track size globally for performance
+    size_t size() const { return 0; }
     V sum_all_values() const {
         BucketArray* active = current_array.load();
         V total = 0;

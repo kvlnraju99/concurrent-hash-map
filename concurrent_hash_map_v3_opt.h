@@ -2,25 +2,19 @@
 #define CONCURRENT_HASH_MAP_V3_OPT_H
 
 #include <vector>
-#include <shared_mutex>
 #include <mutex>
 #include <optional>
 #include <functional>
 #include <atomic>
-#include <chrono>
-#include <iostream>
 #include <omp.h>
 
-/**
- * @brief Thin Mutex wrapper for bucket locking.
- * NOTE: Spinlock was tested and caused 9x worse contention under
- * Zipfian workloads (392s vs 45s). std::mutex yields to the OS
- * scheduler, allowing lock holders to make progress instead of
- * being starved by spinning waiters.
- */
+#ifdef AUDIT_ENABLED
+#include <chrono>
+#include <iostream>
 
 /**
  * @brief Performance Audit Structure - Thread Local
+ * Only compiled when AUDIT_ENABLED is defined.
  */
 struct ThreadAuditOpt {
     long long global_lock_wait_ns{0};
@@ -56,6 +50,10 @@ inline void report_opt_audit() {
     std::cout << "3. Resize Operations:      " << total_resize_count << " (Total: " << (total_resize_time / 1000000.0) << " ms)" << std::endl;
     std::cout << "------------------------------------------" << std::endl;
 }
+#else
+inline void init_opt_audit(int) {}
+inline void report_opt_audit() {}
+#endif
 
 template <typename K, typename V>
 class ConcurrentHashMapV3Opt {
@@ -79,7 +77,13 @@ private:
     std::vector<Bucket*> buckets;
     size_t bucket_count;
     std::atomic<size_t> element_count;
-    mutable std::shared_mutex global_structure_mtx;
+
+    /**
+     * @brief Lightweight resize coordination using an atomic flag.
+     * Replaces std::shared_mutex to eliminate cache-line bouncing.
+     */
+    std::atomic<bool> resizing{false};
+    std::mutex resize_mutex;
 
     size_t get_bucket_index(const K& key, size_t count) const {
         return std::hash<K>{}(key) % count;
@@ -97,37 +101,63 @@ private:
         }
     }
 
+    void wait_for_resize() const {
+        while (resizing.load(std::memory_order_acquire)) {}
+    }
+
     void check_and_resize() {
-        if (element_count.load() > bucket_count) {
-            int tid = omp_get_thread_num();
-            auto start = std::chrono::high_resolution_clock::now();
-            
-            std::unique_lock<std::shared_mutex> lock(global_structure_mtx);
-            if (element_count.load() <= bucket_count) return;
+        if (element_count.load(std::memory_order_relaxed) <= bucket_count) return;
 
-            size_t new_count = bucket_count * 2;
-            std::vector<Bucket*> new_buckets(new_count);
-            for (size_t i = 0; i < new_count; ++i) new_buckets[i] = new Bucket();
-
-            for (size_t i = 0; i < bucket_count; ++i) {
-                Node* curr = buckets[i]->head;
-                while (curr) {
-                    size_t new_idx = get_bucket_index(curr->key, new_count);
-                    new_buckets[new_idx]->head = new Node(curr->key, curr->value, new_buckets[new_idx]->head);
-                    curr = curr->next;
-                }
-            }
-
-            clear_buckets(buckets);
-            buckets = std::move(new_buckets);
-            bucket_count = new_count;
-            
-            auto end = std::chrono::high_resolution_clock::now();
-            if (g_opt_audits) {
-                g_opt_audits[tid].resize_time_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-                g_opt_audits[tid].resize_count++;
-            }
+        if (!resize_mutex.try_lock()) return;
+        if (element_count.load() <= bucket_count) {
+            resize_mutex.unlock();
+            return;
         }
+
+        resizing.store(true, std::memory_order_release);
+
+#ifdef AUDIT_ENABLED
+        int tid = omp_get_thread_num();
+        auto start = std::chrono::high_resolution_clock::now();
+#endif
+
+        for (size_t i = 0; i < bucket_count; ++i)
+            buckets[i]->mtx.lock();
+
+        size_t new_count = bucket_count * 2;
+        std::vector<Bucket*> new_buckets(new_count);
+        for (size_t i = 0; i < new_count; ++i) new_buckets[i] = new Bucket();
+
+        for (size_t i = 0; i < bucket_count; ++i) {
+            Node* curr = buckets[i]->head;
+            while (curr) {
+                Node* next = curr->next;
+                size_t new_idx = get_bucket_index(curr->key, new_count);
+                curr->next = new_buckets[new_idx]->head;
+                new_buckets[new_idx]->head = curr;
+                curr = next;
+            }
+            buckets[i]->head = nullptr;
+        }
+
+        for (size_t i = 0; i < bucket_count; ++i)
+            buckets[i]->mtx.unlock();
+
+        for (auto b : buckets) delete b;
+
+        buckets = std::move(new_buckets);
+        bucket_count = new_count;
+
+        resizing.store(false, std::memory_order_release);
+
+#ifdef AUDIT_ENABLED
+        auto end = std::chrono::high_resolution_clock::now();
+        if (g_opt_audits) {
+            g_opt_audits[tid].resize_time_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+            g_opt_audits[tid].resize_count++;
+        }
+#endif
+        resize_mutex.unlock();
     }
 
 public:
@@ -142,21 +172,19 @@ public:
     }
 
     void put(const K& key, const V& value) {
-        int tid = omp_get_thread_num();
-        
-        auto s1 = std::chrono::high_resolution_clock::now();
-        std::shared_lock<std::shared_mutex> lock(global_structure_mtx);
-        auto s2 = std::chrono::high_resolution_clock::now();
-        if (g_opt_audits && tid < g_opt_max_threads) 
-            g_opt_audits[tid].global_lock_wait_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(s2 - s1).count();
-
+        wait_for_resize();
         size_t idx = get_bucket_index(key, bucket_count);
-        
+
+#ifdef AUDIT_ENABLED
+        int tid = omp_get_thread_num();
         auto b1 = std::chrono::high_resolution_clock::now();
+#endif
         buckets[idx]->mtx.lock();
+#ifdef AUDIT_ENABLED
         auto b2 = std::chrono::high_resolution_clock::now();
         if (g_opt_audits && tid < g_opt_max_threads)
             g_opt_audits[tid].bucket_lock_wait_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(b2 - b1).count();
+#endif
 
         Node* curr = buckets[idx]->head;
         while (curr) {
@@ -169,28 +197,25 @@ public:
         }
 
         buckets[idx]->head = new Node(key, value, buckets[idx]->head);
-        element_count.fetch_add(1);
-        
+        element_count.fetch_add(1, std::memory_order_relaxed);
         buckets[idx]->mtx.unlock();
-        lock.unlock(); 
         check_and_resize();
     }
 
     std::optional<V> get(const K& key) const {
-        int tid = omp_get_thread_num();
-        auto s1 = std::chrono::high_resolution_clock::now();
-        std::shared_lock<std::shared_mutex> lock(global_structure_mtx);
-        auto s2 = std::chrono::high_resolution_clock::now();
-        if (g_opt_audits && tid < g_opt_max_threads)
-            g_opt_audits[tid].global_lock_wait_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(s2 - s1).count();
-
+        wait_for_resize();
         size_t idx = get_bucket_index(key, bucket_count);
-        
+
+#ifdef AUDIT_ENABLED
+        int tid = omp_get_thread_num();
         auto b1 = std::chrono::high_resolution_clock::now();
+#endif
         buckets[idx]->mtx.lock();
+#ifdef AUDIT_ENABLED
         auto b2 = std::chrono::high_resolution_clock::now();
         if (g_opt_audits && tid < g_opt_max_threads)
             g_opt_audits[tid].bucket_lock_wait_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(b2 - b1).count();
+#endif
 
         Node* curr = buckets[idx]->head;
         while (curr) {
@@ -205,26 +230,26 @@ public:
         return std::nullopt;
     }
 
-    void update(const K& key, std::function<V(std::optional<V>)> updater) {
-        int tid = omp_get_thread_num();
-        auto s1 = std::chrono::high_resolution_clock::now();
-        std::shared_lock<std::shared_mutex> lock(global_structure_mtx);
-        auto s2 = std::chrono::high_resolution_clock::now();
-        if (g_opt_audits && tid < g_opt_max_threads)
-            g_opt_audits[tid].global_lock_wait_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(s2 - s1).count();
-
+    template<typename F>
+    void update(const K& key, F updater) {
+        wait_for_resize();
         size_t idx = get_bucket_index(key, bucket_count);
-        
+
+#ifdef AUDIT_ENABLED
+        int tid = omp_get_thread_num();
         auto b1 = std::chrono::high_resolution_clock::now();
+#endif
         buckets[idx]->mtx.lock();
+#ifdef AUDIT_ENABLED
         auto b2 = std::chrono::high_resolution_clock::now();
         if (g_opt_audits && tid < g_opt_max_threads)
             g_opt_audits[tid].bucket_lock_wait_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(b2 - b1).count();
+#endif
 
         Node* curr = buckets[idx]->head;
         while (curr) {
             if (curr->key == key) {
-                curr->value = updater(curr->value);
+                curr->value = updater(std::optional<V>(curr->value));
                 buckets[idx]->mtx.unlock();
                 return;
             }
@@ -232,26 +257,24 @@ public:
         }
 
         buckets[idx]->head = new Node(key, updater(std::nullopt), buckets[idx]->head);
-        element_count.fetch_add(1);
-        
+        element_count.fetch_add(1, std::memory_order_relaxed);
         buckets[idx]->mtx.unlock();
-        lock.unlock();
         check_and_resize();
     }
 
     size_t size() const { return element_count.load(); }
 
     V sum_all_values() const {
-        std::shared_lock<std::shared_mutex> lock(global_structure_mtx);
+        wait_for_resize();
         V total = 0;
-        for (auto b : buckets) {
-            b->mtx.lock();
-            Node* curr = b->head;
+        for (size_t i = 0; i < bucket_count; ++i) {
+            buckets[i]->mtx.lock();
+            Node* curr = buckets[i]->head;
             while (curr) {
                 total += curr->value;
                 curr = curr->next;
             }
-            b->mtx.unlock();
+            buckets[i]->mtx.unlock();
         }
         return total;
     }

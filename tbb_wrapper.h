@@ -32,14 +32,15 @@ public:
         return std::nullopt;
     }
 
-    void update(const K& key, std::function<V(std::optional<V>)> updater) {
+    template<typename F>
+    void update(const K& key, F updater) {
         typename tbb::concurrent_hash_map<K, V>::accessor acc;
         if (map.insert(acc, key)) {
             // New key
             acc->second = updater(std::nullopt);
         } else {
             // Existing key
-            acc->second = updater(acc->second);
+            acc->second = updater(std::optional<V>(acc->second));
         }
     }
 

@@ -103,14 +103,15 @@ public:
         return false;
     }
 
-    void update(const K& key, std::function<V(std::optional<V>)> updater) {
+    template<typename F>
+    void update(const K& key, F updater) {
         size_t idx = get_bucket_index(key);
         std::lock_guard<std::mutex> lock(buckets[idx].mtx);
 
         Node* curr = buckets[idx].head;
         while (curr) {
             if (curr->key == key) {
-                curr->value = updater(curr->value);
+                curr->value = updater(std::optional<V>(curr->value));
                 return;
             }
             curr = curr->next;

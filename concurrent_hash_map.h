@@ -2,17 +2,19 @@
 #define CONCURRENT_HASH_MAP_H
 
 #include <vector>
-#include <shared_mutex>
 #include <mutex>
 #include <optional>
 #include <functional>
 #include <atomic>
+#include <omp.h>
+
+#ifdef AUDIT_ENABLED
 #include <chrono>
 #include <iostream>
-#include <omp.h>
 
 /**
  * @brief Performance Audit Structure - Thread Local version to avoid contention
+ * Only compiled when AUDIT_ENABLED is defined.
  */
 struct ThreadAudit {
     long long global_lock_wait_ns{0};
@@ -49,6 +51,11 @@ inline void report_audit() {
     std::cout << "3. Resize Operations:      " << total_resize_count << " (Total: " << (total_resize_time / 1000000.0) << " ms)" << std::endl;
     std::cout << "--------------------------------" << std::endl;
 }
+#else
+// No-op stubs when audit is disabled
+inline void init_audit(int) {}
+inline void report_audit() {}
+#endif
 
 template <typename K, typename V>
 class ConcurrentHashMap {
@@ -60,7 +67,7 @@ private:
         Node(K k, V v, Node* n) : key(k), value(v), next(n) {}
     };
 
-    struct Bucket {
+    struct alignas(64) Bucket {
         Node* head = nullptr;
         std::mutex mtx;
     };
@@ -68,7 +75,18 @@ private:
     std::vector<Bucket*> buckets;
     size_t bucket_count;
     std::atomic<size_t> element_count;
-    mutable std::shared_mutex global_structure_mtx;
+
+    /**
+     * @brief Lightweight resize coordination using an atomic flag.
+     * 
+     * DESIGN: Replaces std::shared_mutex which caused 55s of cumulative
+     * cache-line bouncing on 64 cores (atomic inc/dec on every shared_lock).
+     * 
+     * Readers: just load the flag (no atomic write → no cache-line bouncing).
+     * Resizer: sets flag to true, locks all buckets, resizes, clears flag.
+     */
+    std::atomic<bool> resizing{false};
+    std::mutex resize_mutex;
 
     size_t get_bucket_index(const K& key, size_t count) const {
         return std::hash<K>{}(key) % count;
@@ -86,37 +104,82 @@ private:
         }
     }
 
-    void check_and_resize() {
-        if (element_count.load() > bucket_count) {
-            int tid = omp_get_thread_num();
-            auto start = std::chrono::high_resolution_clock::now();
-            
-            std::unique_lock<std::shared_mutex> lock(global_structure_mtx);
-            if (element_count.load() <= bucket_count) return;
-
-            size_t new_count = bucket_count * 2;
-            std::vector<Bucket*> new_buckets(new_count);
-            for (size_t i = 0; i < new_count; ++i) new_buckets[i] = new Bucket();
-
-            for (size_t i = 0; i < bucket_count; ++i) {
-                Node* curr = buckets[i]->head;
-                while (curr) {
-                    size_t new_idx = get_bucket_index(curr->key, new_count);
-                    new_buckets[new_idx]->head = new Node(curr->key, curr->value, new_buckets[new_idx]->head);
-                    curr = curr->next;
-                }
-            }
-
-            clear_buckets(buckets);
-            buckets = std::move(new_buckets);
-            bucket_count = new_count;
-            
-            auto end = std::chrono::high_resolution_clock::now();
-            if (g_thread_audits) {
-                g_thread_audits[tid].resize_time_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-                g_thread_audits[tid].resize_count++;
-            }
+    /**
+     * @brief Wait for any in-progress resize to complete.
+     * Spin-wait is acceptable because resizes are rare events.
+     */
+    void wait_for_resize() const {
+        while (resizing.load(std::memory_order_acquire)) {
+            // Spin-wait — resize is rare
         }
+    }
+
+    void check_and_resize() {
+        if (element_count.load(std::memory_order_relaxed) <= bucket_count) return;
+
+        // Only one thread can resize at a time
+        if (!resize_mutex.try_lock()) return;
+        
+        // Double-check after acquiring the resize mutex
+        if (element_count.load() <= bucket_count) {
+            resize_mutex.unlock();
+            return;
+        }
+
+        // Signal all readers to wait
+        resizing.store(true, std::memory_order_release);
+
+#ifdef AUDIT_ENABLED
+        int tid = omp_get_thread_num();
+        auto start = std::chrono::high_resolution_clock::now();
+#endif
+
+        // Lock ALL buckets to quiesce concurrent writers
+        for (size_t i = 0; i < bucket_count; ++i) {
+            buckets[i]->mtx.lock();
+        }
+
+        size_t new_count = bucket_count * 2;
+        std::vector<Bucket*> new_buckets(new_count);
+        for (size_t i = 0; i < new_count; ++i) new_buckets[i] = new Bucket();
+
+        // Rehash: move nodes to new buckets
+        for (size_t i = 0; i < bucket_count; ++i) {
+            Node* curr = buckets[i]->head;
+            while (curr) {
+                Node* next = curr->next;
+                size_t new_idx = get_bucket_index(curr->key, new_count);
+                curr->next = new_buckets[new_idx]->head;
+                new_buckets[new_idx]->head = curr;
+                curr = next;
+            }
+            buckets[i]->head = nullptr;
+        }
+
+        // Unlock all old buckets before swapping
+        for (size_t i = 0; i < bucket_count; ++i) {
+            buckets[i]->mtx.unlock();
+        }
+
+        // Delete old bucket shells (nodes were moved, not copied)
+        for (auto b : buckets) {
+            delete b;
+        }
+
+        buckets = std::move(new_buckets);
+        bucket_count = new_count;
+
+        // Clear the resize flag — readers can proceed
+        resizing.store(false, std::memory_order_release);
+
+#ifdef AUDIT_ENABLED
+        auto end = std::chrono::high_resolution_clock::now();
+        if (g_thread_audits) {
+            g_thread_audits[tid].resize_time_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+            g_thread_audits[tid].resize_count++;
+        }
+#endif
+        resize_mutex.unlock();
     }
 
 public:
@@ -131,21 +194,20 @@ public:
     }
 
     void put(const K& key, const V& value) {
-        int tid = omp_get_thread_num();
-        
-        auto s1 = std::chrono::high_resolution_clock::now();
-        std::shared_lock<std::shared_mutex> lock(global_structure_mtx);
-        auto s2 = std::chrono::high_resolution_clock::now();
-        if (g_thread_audits && tid < g_audit_max_threads) 
-            g_thread_audits[tid].global_lock_wait_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(s2 - s1).count();
+        wait_for_resize();
 
         size_t idx = get_bucket_index(key, bucket_count);
-        
+
+#ifdef AUDIT_ENABLED
+        int tid = omp_get_thread_num();
         auto b1 = std::chrono::high_resolution_clock::now();
+#endif
         std::lock_guard<std::mutex> b_lock(buckets[idx]->mtx);
+#ifdef AUDIT_ENABLED
         auto b2 = std::chrono::high_resolution_clock::now();
         if (g_thread_audits && tid < g_audit_max_threads)
             g_thread_audits[tid].bucket_lock_wait_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(b2 - b1).count();
+#endif
 
         Node* curr = buckets[idx]->head;
         while (curr) {
@@ -157,27 +219,24 @@ public:
         }
 
         buckets[idx]->head = new Node(key, value, buckets[idx]->head);
-        element_count.fetch_add(1);
-        
-        lock.unlock(); 
-        check_and_resize();
+        element_count.fetch_add(1, std::memory_order_relaxed);
     }
 
     std::optional<V> get(const K& key) const {
-        int tid = omp_get_thread_num();
-        auto s1 = std::chrono::high_resolution_clock::now();
-        std::shared_lock<std::shared_mutex> lock(global_structure_mtx);
-        auto s2 = std::chrono::high_resolution_clock::now();
-        if (g_thread_audits && tid < g_audit_max_threads)
-            g_thread_audits[tid].global_lock_wait_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(s2 - s1).count();
+        wait_for_resize();
 
         size_t idx = get_bucket_index(key, bucket_count);
-        
+
+#ifdef AUDIT_ENABLED
+        int tid = omp_get_thread_num();
         auto b1 = std::chrono::high_resolution_clock::now();
+#endif
         std::lock_guard<std::mutex> b_lock(buckets[idx]->mtx);
+#ifdef AUDIT_ENABLED
         auto b2 = std::chrono::high_resolution_clock::now();
         if (g_thread_audits && tid < g_audit_max_threads)
             g_thread_audits[tid].bucket_lock_wait_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(b2 - b1).count();
+#endif
 
         Node* curr = buckets[idx]->head;
         while (curr) {
@@ -187,46 +246,49 @@ public:
         return std::nullopt;
     }
 
-    void update(const K& key, std::function<V(std::optional<V>)> updater) {
-        int tid = omp_get_thread_num();
-        auto s1 = std::chrono::high_resolution_clock::now();
-        std::shared_lock<std::shared_mutex> lock(global_structure_mtx);
-        auto s2 = std::chrono::high_resolution_clock::now();
-        if (g_thread_audits && tid < g_audit_max_threads)
-            g_thread_audits[tid].global_lock_wait_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(s2 - s1).count();
+    /**
+     * @brief Atomic read-modify-write operation.
+     * Templatized updater avoids std::function virtual dispatch overhead,
+     * allowing the compiler to inline the lambda (saves ~10M virtual calls).
+     */
+    template<typename F>
+    void update(const K& key, F updater) {
+        wait_for_resize();
 
         size_t idx = get_bucket_index(key, bucket_count);
-        
+
+#ifdef AUDIT_ENABLED
+        int tid = omp_get_thread_num();
         auto b1 = std::chrono::high_resolution_clock::now();
+#endif
         std::lock_guard<std::mutex> b_lock(buckets[idx]->mtx);
+#ifdef AUDIT_ENABLED
         auto b2 = std::chrono::high_resolution_clock::now();
         if (g_thread_audits && tid < g_audit_max_threads)
             g_thread_audits[tid].bucket_lock_wait_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(b2 - b1).count();
+#endif
 
         Node* curr = buckets[idx]->head;
         while (curr) {
             if (curr->key == key) {
-                curr->value = updater(curr->value);
+                curr->value = updater(std::optional<V>(curr->value));
                 return;
             }
             curr = curr->next;
         }
 
         buckets[idx]->head = new Node(key, updater(std::nullopt), buckets[idx]->head);
-        element_count.fetch_add(1);
-        
-        lock.unlock();
-        check_and_resize();
+        element_count.fetch_add(1, std::memory_order_relaxed);
     }
 
     size_t size() const { return element_count.load(); }
 
     V sum_all_values() const {
-        std::shared_lock<std::shared_mutex> lock(global_structure_mtx);
+        wait_for_resize();
         V total = 0;
-        for (auto b : buckets) {
-            std::lock_guard<std::mutex> b_lock(b->mtx);
-            Node* curr = b->head;
+        for (size_t i = 0; i < bucket_count; ++i) {
+            std::lock_guard<std::mutex> b_lock(buckets[i]->mtx);
+            Node* curr = buckets[i]->head;
             while (curr) {
                 total += curr->value;
                 curr = curr->next;

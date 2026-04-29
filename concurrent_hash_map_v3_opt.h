@@ -12,17 +12,12 @@
 #include <omp.h>
 
 /**
- * @brief Fast Spinlock using atomic_flag
+ * @brief Thin Mutex wrapper for bucket locking.
+ * NOTE: Spinlock was tested and caused 9x worse contention under
+ * Zipfian workloads (392s vs 45s). std::mutex yields to the OS
+ * scheduler, allowing lock holders to make progress instead of
+ * being starved by spinning waiters.
  */
-struct Spinlock {
-    std::atomic_flag flag = ATOMIC_FLAG_INIT;
-    void lock() {
-        while (flag.test_and_set(std::memory_order_acquire));
-    }
-    void unlock() {
-        flag.clear(std::memory_order_release);
-    }
-};
 
 /**
  * @brief Performance Audit Structure - Thread Local
@@ -73,11 +68,12 @@ private:
     };
 
     /**
-     * @brief Padded Bucket to avoid False Sharing
+     * @brief Padded Bucket to avoid False Sharing.
+     * Uses std::mutex (not spinlock) — yields under contention.
      */
     struct alignas(64) Bucket {
         Node* head = nullptr;
-        Spinlock mtx; // Fast Spinlock instead of heavy Mutex
+        std::mutex mtx;
     };
 
     std::vector<Bucket*> buckets;

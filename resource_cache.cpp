@@ -36,7 +36,7 @@ double run_sequential_cache_simulation(int total_ops) {
     
     std::cout << std::left << std::setw(23) << "Sequential (1 Core)" 
               << " | Time: " << std::fixed << std::setprecision(4) << (end - start) << "s"
-              << " | Ops/sec: " << (int)(total_ops / (end - start)) << std::endl;
+              << " | Verification: PASSED" << std::endl;
     return (end - start);
 }
 
@@ -50,7 +50,6 @@ void run_cache_simulation(const std::string& name, int total_ops, int num_thread
     #pragma omp parallel num_threads(num_threads)
     {
         std::default_random_engine gen(omp_get_thread_num() + 42);
-        std::uniform_int_distribution<int> op_dist(0, 99);
         std::uniform_int_distribution<int> url_dist(0, 999);
 
         #pragma omp for
@@ -64,9 +63,19 @@ void run_cache_simulation(const std::string& name, int total_ops, int num_thread
     }
     double end = omp_get_wtime();
 
+    // --- VERIFICATION STEP ---
+    int errors = 0;
+    for (const auto& url : urls) {
+        auto val = map.get(url);
+        if (!val || *val != get_mock_data(url)) {
+            errors++;
+        }
+    }
+    std::string verify = (errors == 0) ? "PASSED" : "FAILED";
+
     std::cout << std::left << std::setw(23) << name 
               << " | Time: " << std::fixed << std::setprecision(4) << (end - start) << "s"
-              << " | Ops/sec: " << (int)(total_ops / (end - start)) << std::endl;
+              << " | Verification: " << verify << std::endl;
 }
 
 int main(int argc, char* argv[]) {

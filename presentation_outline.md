@@ -21,8 +21,6 @@ We developed 5 versions of the library to explore the synchronization spectrum:
 1.  **V1: Global Lock (Baseline)** - Simple, safe, but slow.
 2.  **V2: Fine-Grained Static** - Lock-per-bucket strategy.
 3.  **V3: Dynamic Concurrent** - Adds adaptive resizing with Reader-Writer locks.
-4.  **V4: Optimistic Atomic** - Hybrid approach using atomic values to reduce lock duration.
-5.  **V5: Wait-Free Reader (RCU-Style)** - Active reader counting for maximum throughput.
 
 ---
 

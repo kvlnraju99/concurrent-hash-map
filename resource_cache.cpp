@@ -74,8 +74,8 @@ int main(int argc, char* argv[]) {
     size_t bucket_count = 131071;
 
     if (argc > 1) total_ops = std::stoi(argv[1]);
-    if (argc > 2) num_threads = std::stoi(argv[3]); // Skip unique_words index
-    if (argc > 3) bucket_count = std::stoull(argv[4]);
+    if (argc > 2) num_threads = std::stoi(argv[2]);
+    if (argc > 3) bucket_count = std::stoull(argv[3]);
 
     std::cout << "==========================================================" << std::endl;
     std::cout << " APPLICATION: WEB BROWSER RESOURCE CACHE (MIXED WORKLOAD)" << std::endl;

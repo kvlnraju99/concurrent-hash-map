@@ -23,7 +23,7 @@ struct SpinlockPtr {
  * @brief Diagnostic Audit
  */
 struct ThreadAuditPtr {
-    long long global_lock_wait_ns{0}; // This should drop to ~0 now!
+    long long global_lock_wait_ns{0};
     long long bucket_lock_wait_ns{0};
     long long resize_time_ns{0};
     int resize_count{0};
@@ -46,11 +46,11 @@ inline void report_ptr_audit() {
         total_resize_time += g_ptr_audits[i].resize_time_ns;
         total_resize_count += g_ptr_audits[i].resize_count;
     }
-    std::cout << "\n--- PERFORMANCE AUDIT REPORT (V3 POINTER SWAP) ---" << std::endl;
-    std::cout << "1. Global Structure Wait:  " << (total_global / 1000000.0) << " ms (WAIT-FREE READS)" << std::endl;
+    std::cout << "\n--- PERFORMANCE AUDIT REPORT (V3 POINTER SWAP + LOCAL TRIGGER) ---" << std::endl;
+    std::cout << "1. Global Structure Wait:  " << (total_global / 1000000.0) << " ms" << std::endl;
     std::cout << "2. Bucket Lock Contention: " << (total_bucket / 1000000.0) << " ms" << std::endl;
     std::cout << "3. Resize Operations:      " << total_resize_count << " (Total: " << (total_resize_time / 1000000.0) << " ms)" << std::endl;
-    std::cout << "---------------------------------------------------" << std::endl;
+    std::cout << "-------------------------------------------------------------------" << std::endl;
 }
 
 template <typename K, typename V>
@@ -83,53 +83,58 @@ private:
     };
 
     std::atomic<BucketArray*> current_array;
-    std::atomic<size_t> element_count;
-    std::mutex resize_mutex; // Only used by resizers
+    std::mutex resize_mutex; 
+    const int THRESHOLD = 5; // Local chain length threshold for resizing
 
     size_t get_bucket_index(const K& key, size_t count) const {
         return std::hash<K>{}(key) % count;
     }
 
-    void check_and_resize(BucketArray* local_array) {
-        if (element_count.load(std::memory_order_relaxed) > local_array->count) {
-            if (!resize_mutex.try_lock()) return; // Someone else is already resizing
-            
-            // Double check
-            BucketArray* active = current_array.load();
-            if (element_count.load() <= active->count) {
-                resize_mutex.unlock(); return;
-            }
-
-            int tid = omp_get_thread_num();
-            auto start = std::chrono::high_resolution_clock::now();
-
-            size_t new_count = active->count * 2;
-            BucketArray* new_array = new BucketArray(new_count);
-
-            for (size_t i = 0; i < active->count; ++i) {
-                Node* curr = active->buckets[i]->head;
-                while (curr) {
-                    size_t idx = get_bucket_index(curr->key, new_count);
-                    new_array->buckets[idx]->head = new Node(curr->key, curr->value, new_array->buckets[idx]->head);
-                    curr = curr->next;
-                }
-            }
-
-            current_array.store(new_array, std::memory_order_release);
-            // In a real system, we'd use RCU or Hazard Pointers to delete the old array safely.
-            // For this benchmark, we'll just leak it or track it.
-            
-            auto end = std::chrono::high_resolution_clock::now();
-            if (g_ptr_audits) {
-                g_ptr_audits[tid].resize_time_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-                g_ptr_audits[tid].resize_count++;
-            }
-            resize_mutex.unlock();
+    void clear_buckets(std::vector<Bucket*>& b_list) {
+        for (auto b : b_list) {
+            Node* curr = b->head;
+            while (curr) { Node* tmp = curr; curr = curr->next; delete tmp; }
+            delete b;
         }
     }
 
+    void check_and_resize(size_t triggering_count) {
+        // Only one thread can resize at a time
+        if (!resize_mutex.try_lock()) return; 
+        
+        BucketArray* active = current_array.load();
+        // Only resize if nobody has resized since we triggered
+        if (active->count > triggering_count) {
+            resize_mutex.unlock(); return;
+        }
+
+        int tid = omp_get_thread_num();
+        auto start = std::chrono::high_resolution_clock::now();
+
+        size_t new_count = active->count * 2;
+        BucketArray* new_array = new BucketArray(new_count);
+
+        for (size_t i = 0; i < active->count; ++i) {
+            Node* curr = active->buckets[i]->head;
+            while (curr) {
+                size_t idx = get_bucket_index(curr->key, new_count);
+                new_array->buckets[idx]->head = new Node(curr->key, curr->value, new_array->buckets[idx]->head);
+                curr = curr->next;
+            }
+        }
+
+        current_array.store(new_array, std::memory_order_release);
+        
+        auto end = std::chrono::high_resolution_clock::now();
+        if (g_ptr_audits) {
+            g_ptr_audits[tid].resize_time_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+            g_ptr_audits[tid].resize_count++;
+        }
+        resize_mutex.unlock();
+    }
+
 public:
-    explicit ConcurrentHashMapV3Ptr(size_t n = 1024) : element_count(0) {
+    explicit ConcurrentHashMapV3Ptr(size_t n = 1024) {
         current_array.store(new BucketArray(n));
     }
 
@@ -145,15 +150,18 @@ public:
             g_ptr_audits[tid].bucket_lock_wait_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(b2 - b1).count();
 
         Node* curr = active->buckets[idx]->head;
+        int depth = 0;
         while (curr) {
+            depth++;
             if (curr->key == key) { curr->value = value; active->buckets[idx]->mtx.unlock(); return; }
             curr = curr->next;
         }
         active->buckets[idx]->head = new Node(key, value, active->buckets[idx]->head);
-        element_count.fetch_add(1, std::memory_order_relaxed);
         active->buckets[idx]->mtx.unlock();
         
-        check_and_resize(active);
+        if (depth > THRESHOLD) {
+            check_and_resize(active->count);
+        }
     }
 
     std::optional<V> get(const K& key) const {
@@ -188,17 +196,21 @@ public:
             g_ptr_audits[tid].bucket_lock_wait_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(b2 - b1).count();
 
         Node* curr = active->buckets[idx]->head;
+        int depth = 0;
         while (curr) {
+            depth++;
             if (curr->key == key) { curr->value = updater(curr->value); active->buckets[idx]->mtx.unlock(); return; }
             curr = curr->next;
         }
         active->buckets[idx]->head = new Node(key, updater(std::nullopt), active->buckets[idx]->head);
-        element_count.fetch_add(1, std::memory_order_relaxed);
         active->buckets[idx]->mtx.unlock();
-        check_and_resize(active);
+
+        if (depth > THRESHOLD) {
+            check_and_resize(active->count);
+        }
     }
 
-    size_t size() const { return element_count.load(); }
+    size_t size() const { return 0; } // We no longer track size globally for performance
     V sum_all_values() const {
         BucketArray* active = current_array.load();
         V total = 0;

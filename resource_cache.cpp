@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include "concurrent_hash_map.h"
 #include "concurrent_hash_map_v2.h"
+#include "concurrent_hash_map_v6.h"
 #ifdef USE_TBB
 #include "tbb_wrapper.h"
 #endif
@@ -33,7 +34,7 @@ double run_sequential_cache_simulation(int total_ops) {
     }
     double end = omp_get_wtime();
     
-    std::cout << std::left << std::setw(20) << "Sequential (1 Core)" 
+    std::cout << std::left << std::setw(23) << "Sequential (1 Core)" 
               << " | Time: " << std::fixed << std::setprecision(4) << (end - start) << "s"
               << " | Ops/sec: " << (int)(total_ops / (end - start)) << std::endl;
     return (end - start);
@@ -63,7 +64,7 @@ void run_cache_simulation(const std::string& name, int total_ops, int num_thread
     }
     double end = omp_get_wtime();
 
-    std::cout << std::left << std::setw(20) << name 
+    std::cout << std::left << std::setw(23) << name 
               << " | Time: " << std::fixed << std::setprecision(4) << (end - start) << "s"
               << " | Ops/sec: " << (int)(total_ops / (end - start)) << std::endl;
 }
@@ -86,6 +87,7 @@ int main(int argc, char* argv[]) {
     run_sequential_cache_simulation(total_ops);
     run_cache_simulation<ConcurrentHashMapV2<std::string, std::string>>("Library V2 (Static)", total_ops, num_threads, bucket_count);
     run_cache_simulation<ConcurrentHashMap<std::string, std::string>>("Library V3 (Dynamic)", total_ops, num_threads, bucket_count);
+    run_cache_simulation<ConcurrentHashMapV6<std::string, std::string>>("Library V6 (Segmented)", total_ops, num_threads, bucket_count);
 #ifdef USE_TBB
     run_cache_simulation<TBBHashMapWrapper<std::string, std::string>>("Intel TBB (Industry)", total_ops, num_threads, bucket_count);
 #endif

@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include "concurrent_hash_map.h"
 #include "concurrent_hash_map_v2.h"
+#include "concurrent_hash_map_v6.h"
 #ifdef USE_TBB
 #include "tbb_wrapper.h"
 #endif
@@ -67,7 +68,7 @@ int main(int argc, char* argv[]) {
     for (long long i = 1; i <= upper_limit; ++i) {
         get_collatz_no_cache(i);
     }
-    std::cout << std::left << std::setw(20) << "No Cache (Parallel)" << " | Time: " << std::fixed << std::setprecision(4) << (omp_get_wtime() - start) << "s" << std::endl;
+    std::cout << std::left << std::setw(23) << "No Cache (Parallel)" << " | Time: " << std::fixed << std::setprecision(4) << (omp_get_wtime() - start) << "s" << std::endl;
 
     // --- 2. SEQUENTIAL CACHE (Baseline) ---
     std::unordered_map<long long, long long> seq_cache;
@@ -76,7 +77,7 @@ int main(int argc, char* argv[]) {
         get_collatz_sequential(i, seq_cache);
     }
     double time_seq = omp_get_wtime() - start;
-    std::cout << std::left << std::setw(20) << "Sequential (1 Core)" << " | Time: " << std::fixed << std::setprecision(4) << time_seq << "s" 
+    std::cout << std::left << std::setw(23) << "Sequential (1 Core)" << " | Time: " << std::fixed << std::setprecision(4) << time_seq << "s" 
               << " | Cache Size: " << seq_cache.size() << std::endl;
 
     // --- 3. LIBRARY V2 (Static) ---
@@ -87,7 +88,7 @@ int main(int argc, char* argv[]) {
         get_collatz_with_cache(i, v2_cache);
     }
     double time_v2 = omp_get_wtime() - start;
-    std::cout << std::left << std::setw(20) << "Library V2 (Static)" << " | Time: " << std::fixed << std::setprecision(4) << time_v2 << "s"
+    std::cout << std::left << std::setw(23) << "Library V2 (Static)" << " | Time: " << std::fixed << std::setprecision(4) << time_v2 << "s"
               << " | Cache Size: " << v2_cache.size() << std::endl;
 
     // --- 4. LIBRARY V3 (Dynamic) ---
@@ -98,8 +99,19 @@ int main(int argc, char* argv[]) {
         get_collatz_with_cache(i, v3_cache);
     }
     double time_v3 = omp_get_wtime() - start;
-    std::cout << std::left << std::setw(20) << "Library V3 (Dynamic)" << " | Time: " << std::fixed << std::setprecision(4) << time_v3 << "s"
+    std::cout << std::left << std::setw(23) << "Library V3 (Dynamic)" << " | Time: " << std::fixed << std::setprecision(4) << time_v3 << "s"
               << " | Cache Size: " << v3_cache.size() << std::endl;
+
+    // --- 5. LIBRARY V6 (Segmented) ---
+    ConcurrentHashMapV6<long long, long long> v6_cache(bucket_count);
+    start = omp_get_wtime();
+    #pragma omp parallel for num_threads(num_threads)
+    for (long long i = 1; i <= upper_limit; ++i) {
+        get_collatz_with_cache(i, v6_cache);
+    }
+    double time_v6 = omp_get_wtime() - start;
+    std::cout << std::left << std::setw(23) << "Library V6 (Segmented)" << " | Time: " << std::fixed << std::setprecision(4) << time_v6 << "s"
+              << " | Cache Size: " << v6_cache.size() << std::endl;
 
 #ifdef USE_TBB
     // --- 7. INTEL TBB (Industry) ---
@@ -110,13 +122,10 @@ int main(int argc, char* argv[]) {
         get_collatz_with_cache(i, tbb_cache);
     }
     double time_tbb = omp_get_wtime() - start;
-    std::cout << std::left << std::setw(20) << "Intel TBB (Industry)" << " | Time: " << std::fixed << std::setprecision(4) << time_tbb << "s"
+    std::cout << std::left << std::setw(23) << "Intel TBB (Industry)" << " | Time: " << std::fixed << std::setprecision(4) << time_tbb << "s"
               << " | Cache Size: " << tbb_cache.size() << std::endl;
 #endif
 
     std::cout << "----------------------------------------------------------" << std::endl;
-    std::cout << "Speedup (V3 vs Seq): " << (time_seq / time_v3) << "x" << std::endl;
-    std::cout << "Speedup (V3 vs V2):  " << (time_v2 / time_v3) << "x" << std::endl;
-
     return 0;
 }

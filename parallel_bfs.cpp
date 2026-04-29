@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include "concurrent_hash_map.h"
 #include "concurrent_hash_map_v2.h"
+#include "concurrent_hash_map_v6.h"
 #ifdef USE_TBB
 #include "tbb_wrapper.h"
 #endif
@@ -51,7 +52,7 @@ double run_sequential_bfs(const Graph& g, int start_node) {
     }
     double end = omp_get_wtime();
     
-    std::cout << std::left << std::setw(20) << "Sequential (1 Core)" 
+    std::cout << std::left << std::setw(23) << "Sequential (1 Core)" 
               << " | Threads: 1  | Time: " << std::fixed << std::setprecision(4) << (end - start) << "s"
               << " | Visited: " << visited.size() << std::endl;
     return (end - start);
@@ -91,7 +92,7 @@ void run_bfs(const std::string& name, const Graph& g, int start_node, int num_th
     }
     double end = omp_get_wtime();
 
-    std::cout << std::left << std::setw(20) << name 
+    std::cout << std::left << std::setw(23) << name 
               << " | Threads: " << std::setw(2) << num_threads 
               << " | Time: " << std::fixed << std::setprecision(4) << (end - start) << "s"
               << " | Visited: " << visited.size() << std::endl;
@@ -121,6 +122,7 @@ int main(int argc, char* argv[]) {
     run_sequential_bfs(g, 0);
     run_bfs<ConcurrentHashMapV2<int, bool>>("Library V2 (Static)", g, 0, num_threads, bucket_count);
     run_bfs<ConcurrentHashMap<int, bool>>("Library V3 (Dynamic)", g, 0, num_threads, bucket_count);
+    run_bfs<ConcurrentHashMapV6<int, bool>>("Library V6 (Segmented)", g, 0, num_threads, bucket_count);
 #ifdef USE_TBB
     run_bfs<TBBHashMapWrapper<int, bool>>("Intel TBB (Industry)", g, 0, num_threads, bucket_count);
 #endif

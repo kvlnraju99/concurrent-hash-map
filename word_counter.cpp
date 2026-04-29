@@ -97,5 +97,7 @@ int main(int argc, char* argv[]) {
 
     std::cout << "==========================================================" << std::endl;
 
+    g_audit.report();
+
     return 0;
 }

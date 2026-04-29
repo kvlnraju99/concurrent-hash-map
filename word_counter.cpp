@@ -79,6 +79,8 @@ int main(int argc, char* argv[]) {
     if (argc > 3) num_threads = std::stoi(argv[3]);
     if (argc > 4) bucket_count = std::stoull(argv[4]);
 
+    init_audit(num_threads);
+
     std::cout << "==========================================================" << std::endl;
     std::cout << " APPLICATION: PARALLEL WORD FREQUENCY COUNTER" << std::endl;
     std::cout << " Total Words: " << total_words << " | Unique Words: " << unique_words << std::endl;
@@ -97,7 +99,7 @@ int main(int argc, char* argv[]) {
 
     std::cout << "==========================================================" << std::endl;
 
-    g_audit.report();
+    report_audit();
 
     return 0;
 }

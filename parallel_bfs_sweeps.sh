@@ -18,7 +18,7 @@ echo "### EXPERIMENT 1: THREAD SCALABILITY"
 echo "Nodes: $NODES | Edges/Node: $EDGES | Buckets: $BUCKETS"
 echo ""
 echo "| Threads | Sequential | V2 Static | V3 Dynamic | V6 Segmented | Intel TBB |"
-echo "| :--- | :--- | :--- | : :--- | :--- | :--- |"
+echo "| :--- | :--- | :--- | :--- | :--- | :--- |"
 
 for T in "${THREADS[@]}"
 do
@@ -60,7 +60,7 @@ done
 
 echo -e "\n---\n"
 
-# --- EXPERIMENT 3: GRAPH DENSITY CONTENTION ---
+# --- EXPERIMENT 3: GRAPH DENSITY (CONTENTION) ---
 NODES=500000
 THREADS=64
 BUCKETS=131071
@@ -82,6 +82,32 @@ do
     TBB=$(extract_time "$RESULTS" "Intel TBB")
     if [ -z "$TBB" ]; then TBB="N/A"; fi
     echo "| $D | $SEQ | $V2 | $V3 | $V6 | $TBB |"
+done
+
+echo -e "\n---\n"
+
+# --- EXPERIMENT 4: PROBLEM SIZE SCALING ---
+THREADS=64
+EDGES=20
+BUCKETS=131071
+NODE_LIST=(100000 500000 1000000 2000000 5000000)
+
+echo "### EXPERIMENT 4: PROBLEM SIZE SCALING"
+echo "Threads: $THREADS | Edges/Node: $EDGES | Buckets: $BUCKETS"
+echo ""
+echo "| Total Nodes | Sequential | V2 Static | V3 Dynamic | V6 Segmented | Intel TBB |"
+echo "| :--- | :--- | :--- | :--- | :--- | :--- |"
+
+for N in "${NODE_LIST[@]}"
+do
+    RESULTS=$(./parallel_bfs $N $EDGES $THREADS $BUCKETS)
+    SEQ=$(extract_time "$RESULTS" "Sequential")
+    V2=$(extract_time "$RESULTS" "Library V2")
+    V3=$(extract_time "$RESULTS" "Library V3")
+    V6=$(extract_time "$RESULTS" "Library V6")
+    TBB=$(extract_time "$RESULTS" "Intel TBB")
+    if [ -z "$TBB" ]; then TBB="N/A"; fi
+    echo "| $N | $SEQ | $V2 | $V3 | $V6 | $TBB |"
 done
 
 echo ""

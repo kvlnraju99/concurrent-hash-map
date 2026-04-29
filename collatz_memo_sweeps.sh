@@ -10,7 +10,7 @@ extract_time() {
 
 # --- EXPERIMENT 1: THREAD SCALABILITY ---
 LIMIT=1000000
-BUCKETS=65536
+BUCKETS=131071
 THREADS=(1 2 4 8 16 32 64)
 
 echo "### EXPERIMENT 1: THREAD SCALABILITY"
@@ -58,16 +58,41 @@ done
 
 echo -e "\n---\n"
 
-# --- EXPERIMENT 3: CONTENTION INTENSITY (Problem Size) ---
+# --- EXPERIMENT 3: CHARACTERISTIC (Small Scale Overhead) ---
 THREADS=64
-BUCKETS=65536
-LIMIT_LIST=(500000 1000000 2000000 5000000)
+BUCKETS=131071
+LIMIT_LIST=(10000 50000 100000 500000)
 
-echo "### EXPERIMENT 3: PROBLEM SIZE INTENSITY"
+echo "### EXPERIMENT 3: SMALL SCALE OVERHEAD"
+echo "Threads: $THREADS | Buckets: $BUCKETS"
+echo ""
+echo "| Limit | Sequential | V2 Static | V3 Dynamic | V6 Segmented | Intel TBB |"
+echo "| :--- | :--- | :--- | :--- | :--- | :--- |"
+
+for L in "${LIMIT_LIST[@]}"
+do
+    RESULTS=$(./collatz_memo $L $THREADS $BUCKETS)
+    SEQ=$(extract_time "$RESULTS" "Sequential")
+    V2=$(extract_time "$RESULTS" "Library V2")
+    V3=$(extract_time "$RESULTS" "Library V3")
+    V6=$(extract_time "$RESULTS" "Library V6")
+    TBB=$(extract_time "$RESULTS" "Intel TBB")
+    if [ -z "$TBB" ]; then TBB="N/A"; fi
+    echo "| $L | $SEQ | $V2 | $V3 | $V6 | $TBB |"
+done
+
+echo -e "\n---\n"
+
+# --- EXPERIMENT 4: PROBLEM SIZE SCALING ---
+THREADS=64
+BUCKETS=131071
+LIMIT_LIST=(1000000 2000000 5000000 10000000)
+
+echo "### EXPERIMENT 4: PROBLEM SIZE SCALING"
 echo "Threads: $THREADS | Buckets: $BUCKETS"
 echo ""
 echo "| Upper Limit | Sequential | V2 Static | V3 Dynamic | V6 Segmented | Intel TBB |"
-echo "| :--- | :--- | : :--- | :--- | :--- | :--- |"
+echo "| :--- | :--- | :--- | :--- | :--- | :--- |"
 
 for L in "${LIMIT_LIST[@]}"
 do
